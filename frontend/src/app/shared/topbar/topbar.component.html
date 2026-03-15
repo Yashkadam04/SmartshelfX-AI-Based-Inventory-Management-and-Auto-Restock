@@ -1,0 +1,56 @@
+<header class="topbar">
+
+    <div class="topbar-left">
+        <button class="menu-btn" (click)="sidebarToggle.emit()">☰</button>
+        <div class="page-title-display">
+            <span class="title-text">{{ pageTitle }}</span>
+        </div>
+    </div>
+
+    <div class="topbar-right">
+
+
+        <div class="notif-wrap" (click)="toggleDropdown($event)">
+            <button class="icon-btn notif-btn">
+                🔔
+                <span class="badge" *ngIf="unreadCount > 0">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
+            </button>
+
+
+            <div class="notif-dropdown" *ngIf="showDropdown" (click)="$event.stopPropagation()">
+                <div class="notif-header">
+                    <span>Notifications</span>
+                    <a routerLink="/alerts" class="view-all">View all →</a>
+                </div>
+
+                <div class="notif-list" *ngIf="alerts.length > 0">
+                    <div class="notif-item" *ngFor="let alert of alerts" [class.unread]="!alert.is_read"
+                        (click)="markRead(alert.id)">
+                        <span class="notif-icon">{{ alertTypeIcon[alert.type] || '🔔' }}</span>
+                        <div class="notif-body">
+                            <p class="notif-msg">{{ alert.message }}</p>
+                            <span class="notif-time">{{ alert.created_at | date:'short' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="notif-empty" *ngIf="alerts.length === 0">
+                    <span>✅ All caught up!</span>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="user-chip">
+            <div class="avatar">{{ auth.getInitials() }}</div>
+            <div class="user-meta">
+                <span class="name">{{ auth.getName() }}</span>
+                <span class="role">{{ auth.getRole() }}</span>
+            </div>
+        </div>
+
+    </div>
+</header>
+
+
+<div class="overlay" *ngIf="showDropdown" (click)="showDropdown = false"></div>

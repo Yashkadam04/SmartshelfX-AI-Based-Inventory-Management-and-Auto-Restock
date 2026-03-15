@@ -1,0 +1,46 @@
+<div class="page animate-fade">
+    <div class="page-title">🏭 <span>Vendor Management</span></div>
+    <p class="subtitle">View and manage registered vendors in the system</p>
+
+    <div class="toolbar">
+        <input class="search-input" type="text" placeholder="🔍 Search vendors..." [(ngModel)]="search">
+        <div class="spacer"></div>
+        <span class="count-badge">{{ filtered.length }} vendors</span>
+    </div>
+
+    <div class="loading-row" *ngIf="loading">⟳ Loading vendors...</div>
+
+    <div class="empty-state" *ngIf="!loading && filtered.length === 0">
+        <div class="empty-icon">🏭</div>
+        <p>No vendors registered yet.<br>Register a VENDOR account to see them here.</p>
+    </div>
+
+    <div class="vendor-grid" *ngIf="!loading && filtered.length > 0">
+        <div class="vendor-card" *ngFor="let v of filtered">
+
+            <div class="vendor-header">
+                <div class="vendor-avatar">{{ getInitials(v.name) }}</div>
+                <div class="vendor-top">
+                    <div class="vendor-name">{{ v.name }}</div>
+                    <span class="vendor-badge">🏭 VENDOR</span>
+                </div>
+            </div>
+
+            <div class="vendor-details">
+                <div class="detail-row">
+                    <span class="detail-icon">✉️</span>
+                    <span class="detail-val">{{ v.email }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-icon">📅</span>
+                    <span class="detail-val">Joined {{ v.createdAt || v.created_at | date:'dd MMM yyyy' }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-icon">🆔</span>
+                    <span class="detail-val">User ID #{{ v.id }}</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

@@ -1,0 +1,121 @@
+<div class="register-page">
+    <div class="bg-grid"></div>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="scan-line"></div>
+    <div class="register-panel">
+        <div class="register-card animate-up">
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+            <div class="logo">
+                <h1>Smart<span>Shelf</span>X</h1>
+                <p>Join the Future of Inventory Management</p>
+            </div>
+            <div class="divider"></div>
+            <h2 class="form-title">Create Account</h2>
+            <p class="form-subtitle">Fill in the details to get started</p>
+            <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <div class="input-wrap"><span class="input-icon">👤</span>
+                            <input type="text" formControlName="name" placeholder="Full Name*" class="has-icon">
+                        </div>
+                        <div class="error" *ngIf="f['name'].touched && f['name'].errors?.['required']">Required</div>
+                    </div>
+                    <div class="form-group">
+                        <div class="input-wrap"><span class="input-icon">&#64;</span>
+                            <input type="text" formControlName="username" placeholder="Username*" class="has-icon">
+                        </div>
+                        <div class="error" *ngIf="f['username'].touched && f['username'].errors?.['required']">Required
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="input-wrap"><span class="input-icon">&#9993;</span>
+                        <input type="email" formControlName="email" placeholder="Email Address*" class="has-icon">
+                    </div>
+                    <div class="error" *ngIf="f['email'].touched && f['email'].errors?.['required']">Required</div>
+                    <div class="error" *ngIf="f['email'].touched && f['email'].errors?.['email']">Invalid email</div>
+                </div>
+                <div class="form-group">
+                    <div class="input-wrap"><span class="input-icon">💼</span>
+                        <select formControlName="role" class="has-icon">
+                            <option value="" disabled selected>Designated Role*</option>
+                            <option value="MANAGER">Warehouse Manager</option>
+                            <option value="VENDOR">Vendor</option>
+                        </select>
+                    </div>
+                    <div class="error" *ngIf="f['role'].touched && f['role'].errors?.['required']">Please select a role
+                    </div>
+                </div>
+                <div class="form-group pw-group">
+                    <div class="input-wrap" (focusin)="showPwTooltip=true" (focusout)="showPwTooltip=false">
+                        <span class="input-icon">🔒</span>
+                        <input [type]="showPass ? 'text' : 'password'" formControlName="password"
+                            placeholder="Password*" class="has-icon" autocomplete="new-password">
+                        <button type="button" class="eye-btn" (click)="showPass=!showPass">{{ showPass ? '🙈' : '👁'
+                            }}</button>
+                    </div>
+                    <div class="pw-tooltip" *ngIf="showPwTooltip">
+                        <div class="pw-tt-title">Password must contain:</div>
+                        <div *ngFor="let r of pwRules" class="pw-rule" [class.pass]="rulePass(r.regex)">
+                            <span class="rule-icon">{{ rulePass(r.regex) ? '✓' : '•' }}</span> {{ r.label }}
+                        </div>
+                    </div>
+                    <div class="error" *ngIf="f['password'].touched && f['password'].errors?.['required']">Required
+                    </div>
+                    <div class="error" *ngIf="f['password'].touched && f['password'].errors?.['passwordStrength']">
+                        Password does not meet requirements</div>
+                </div>
+                <div class="form-group pw-group">
+                    <div class="input-wrap" (focusin)="showCpTooltip=true" (focusout)="showCpTooltip=false">
+                        <span class="input-icon">🔒</span>
+                        <input [type]="showConfirm ? 'text' : 'password'" formControlName="confirmPassword"
+                            placeholder="Confirm Password*" class="has-icon" autocomplete="new-password">
+                        <button type="button" class="eye-btn" (click)="showConfirm=!showConfirm">{{ showConfirm ? '🙈' :
+                            '👁' }}</button>
+                    </div>
+                    <div class="pw-tooltip" *ngIf="showCpTooltip">
+                        <div class="pw-tt-title">Password must contain:</div>
+                        <div *ngFor="let r of pwRules" class="pw-rule" [class.pass]="rulePass(r.regex)">
+                            <span class="rule-icon">{{ rulePass(r.regex) ? '✓' : '•' }}</span> {{ r.label }}
+                        </div>
+                    </div>
+                    <div class="error"
+                        *ngIf="f['confirmPassword'].touched && f['confirmPassword'].errors?.['required']">Required</div>
+                    <div class="error" *ngIf="f['confirmPassword'].touched && form.errors?.['passwordMismatch']">
+                        Passwords do not match</div>
+                </div>
+                <div class="error-banner" *ngIf="errorMsg">{{ errorMsg }}</div>
+                <button type="submit" class="btn-submit" [disabled]="loading">
+                    <span *ngIf="!loading">REGISTER NOW</span>
+                    <span *ngIf="loading" class="spinner">⟳</span>
+                </button>
+            </form>
+            <p class="footer-link">Already have an account? <a routerLink="/auth/login">Sign In</a></p>
+        </div>
+    </div>
+    <div class="warehouse-panel">
+        <div class="warehouse-overlay"></div>
+        <div class="warehouse-tagline">
+            <h2>Join Thousands of<br><span>Smart Warehouses</span></h2>
+            <p>Real-time inventory control, AI-powered restocking — all in one platform</p>
+            <div class="stats-grid">
+                <div class="stat">
+                    <div class="stat-val">94.2%</div>
+                    <div class="stat-lbl">Forecast Accuracy</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-val">40%</div>
+                    <div class="stat-lbl">Less Stockouts</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-val">3x</div>
+                    <div class="stat-lbl">Faster Restock</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

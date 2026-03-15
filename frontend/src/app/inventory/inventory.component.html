@@ -1,0 +1,243 @@
+<div class="inventory animate-fade">
+
+    <div class="page-header">
+        <div>
+            <div class="page-title">Inventory <span>Catalog</span></div>
+            <p class="page-sub">Manage your products, stock levels and categories</p>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div class="search-wrap">
+                <span class="search-icon">🔍</span>
+                <input class="search-input" placeholder="Search SKU or product name..." [(ngModel)]="searchTerm"
+                    (input)="onSearch()" />
+            </div>
+            <select class="filter-sel" [(ngModel)]="filterCategory" (change)="onSearch()">
+                <option value="">All Categories</option>
+                <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+            </select>
+            <select class="filter-sel" [(ngModel)]="filterStatus" (change)="onSearch()">
+                <option value="">All Status</option>
+                <option value="critical">Critical</option>
+                <option value="low">Low Stock</option>
+                <option value="out">Out of Stock</option>
+                <option value="in_stock">In Stock</option>
+            </select>
+        </div>
+        <div class="toolbar-right">
+            <button class="btn btn-ghost" (click)="downloadTemplate()" title="Download template file">
+                📄 Template
+            </button>
+            <label class="btn btn-warning" [class.importing]="importing" title="Import .csv, .xlsx, .xls, .tsv, .ods">
+                <span *ngIf="!importing">📥 Import Sheet</span>
+                <span *ngIf="importing">⏳ Importing...</span>
+                <input type="file" accept=".csv,.xlsx,.xls,.tsv,.ods,.txt" style="display:none"
+                    (change)="onFileImport($event)" [disabled]="importing">
+            </label>
+            <button class="btn btn-primary" (click)="openAdd()">＋ Add Product</button>
+        </div>
+    </div>
+
+    <!-- Import Error Panel -->
+    <div class="import-error-panel" *ngIf="importError">
+        <div class="error-icon">⚠️</div>
+        <div class="error-body">
+            <strong>Import Failed — Column Mismatch</strong>
+            <p>{{ importError }}</p>
+            <p class="error-fix">
+                👉 Rename your columns to match:
+                <code>name</code>, <code>sku</code>, <code>category</code>
+                — or click <strong>📄 Template</strong> and use that format.
+            </p>
+        </div>
+        <button class="close-btn" (click)="importError = ''">✕</button>
+    </div>
+    <div class="form-panel" *ngIf="showForm">
+        <div class="form-panel-header">
+            <h3>{{ editing ? '✏️ Edit Product' : '➕ Add New Product' }}</h3>
+            <button class="close-btn" (click)="closeForm()">✕</button>
+        </div>
+        <form [formGroup]="form" (ngSubmit)="saveProduct()">
+            <div class="form-row-3">
+                <div class="form-group">
+                    <label>Product Name <span class="req">*</span></label>
+                    <input type="text" formControlName="name" placeholder="e.g. Laptop Stand Pro">
+                    <span class="error"
+                        *ngIf="form.get('name')!.touched && form.get('name')!.errors?.['required']">Required</span>
+                </div>
+                <div class="form-group">
+                    <label>SKU <span class="req">*</span></label>
+                    <input type="text" formControlName="sku" placeholder="e.g. SKU-001">
+                    <span class="error"
+                        *ngIf="form.get('sku')!.touched && form.get('sku')!.errors?.['required']">Required</span>
+                </div>
+                <div class="form-group">
+                    <label>Category <span class="req">*</span></label>
+                    <select formControlName="category">
+                        <option value="" disabled>Select category</option>
+                        <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+                    </select>
+                    <span class="error"
+                        *ngIf="form.get('category')!.touched && form.get('category')!.errors?.['required']">Required</span>
+                </div>
+            </div>
+            <div class="form-row-3">
+                <div class="form-group">
+                    <label>Current Stock <span class="req">*</span></label>
+                    <input type="number" formControlName="current_stock" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Reorder Level <span class="req">*</span></label>
+                    <input type="number" formControlName="reorder_level" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Unit Price (₹)</label>
+                    <input type="number" formControlName="unit_price" min="0" step="0.01">
+                </div>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label>Vendor <span class="hint">(optional)</span></label>
+                    <select formControlName="vendor_id">
+                        <option [value]="null">— No vendor —</option>
+                        <option *ngFor="let v of vendors" [value]="v.id">{{ v.name }} (ID: {{ v.id }})</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Expiry Date <span class="hint">(optional)</span></label>
+                    <input type="date" formControlName="expiry_date">
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success">💾 Save Product</button>
+                <button type="button" class="btn btn-ghost" (click)="closeForm()">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Table Card -->
+    <div class="table-card">
+        <div class="table-topbar">
+            <span class="total-count">
+                <strong>{{ total || products.length }}</strong> products found
+            </span>
+            <span class="page-info">Page {{ page }} of {{ totalPages }}</span>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading-row" *ngIf="loading">
+            <div class="spinner"></div>
+            <span>Loading inventory...</span>
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrap" *ngIf="!loading">
+            <table>
+                <colgroup>
+                    <col style="width: 110px">
+                    <col style="width: auto">
+                    <col style="width: 120px">
+                    <col style="width: 90px">
+                    <col style="width: 110px">
+                    <col style="width: 110px">
+                    <col style="width: 110px">
+                    <col style="width: 120px">
+                    <col style="width: 130px">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th class="text-center">Stock</th>
+                        <th class="text-center">Reorder Lvl</th>
+                        <th class="text-right">Unit Price</th>
+                        <th class="text-center">Vendor</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let p of products">
+                        <td><code class="sku-tag">{{ p.sku }}</code></td>
+                        <td class="product-name">{{ p.name }}</td>
+                        <td><span class="cat-tag">{{ p.category }}</span></td>
+                        <td class="text-center" [ngClass]="{
+              'stock-zero': p.current_stock === 0,
+              'stock-crit': p.current_stock > 0 && p.current_stock <= p.reorder_level * 0.5,
+              'stock-low':  p.current_stock > p.reorder_level * 0.5 && p.current_stock <= p.reorder_level,
+              'stock-ok':   p.current_stock > p.reorder_level
+            }">
+                            {{ p.current_stock }}
+                        </td>
+                        <td class="text-center muted">{{ p.reorder_level }}</td>
+                        <td class="text-right">₹{{ p.unit_price | number:'1.2-2' }}</td>
+                        <td class="text-center">
+                            <span class="vendor-id-tag" *ngIf="p.vendor_id">{{ getVendorName(p.vendor_id) }}</span>
+                            <span class="muted" *ngIf="!p.vendor_id">—</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge" [ngClass]="statusClass(p)">{{ statusLabel(p) }}</span>
+                        </td>
+                        <td class="text-center">
+                            <div class="action-btns">
+                                <button class="act-btn edit" (click)="openEdit(p)" title="Edit">✏️</button>
+                                <button class="act-btn del" (click)="deleteProduct(p)" title="Delete">🗑</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr *ngIf="products.length === 0">
+                        <td colspan="8" class="empty-row">
+                            No products found. Add one or import a CSV file.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" *ngIf="totalPages > 1">
+            <button class="page-btn" [disabled]="page === 1" (click)="prevPage()">← Prev</button>
+            <div class="page-nums">
+                <span class="page-num active">{{ page }}</span>
+                <span class="page-sep">of</span>
+                <span class="page-num">{{ totalPages }}</span>
+            </div>
+            <button class="page-btn" [disabled]="page >= totalPages" (click)="nextPage()">Next →</button>
+        </div>
+    </div>
+
+    <!-- Import Format Help -->
+    <div class="csv-help">
+        <div class="help-row">
+            <strong>📋 Supported Formats:</strong>
+            <span class="fmt-badge">CSV</span>
+            <span class="fmt-badge">XLSX</span>
+            <span class="fmt-badge">XLS</span>
+            <span class="fmt-badge">TSV</span>
+            <span class="fmt-badge">ODS</span>
+        </div>
+        <div class="help-row">
+            <strong>Required columns:</strong>
+            <code>name</code>
+            <code>sku</code>
+            <code>category</code>
+        </div>
+        <div class="help-row">
+            <strong>Optional columns:</strong>
+            <code>current_stock</code>
+            <code>reorder_level</code>
+            <code>unit_price</code>
+            <code>expiry_date</code>
+        </div>
+        <div class="help-row">
+            <span class="csv-note">Column names are flexible — "Product Name", "productname", "item" all work for the
+                name column.</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" (click)="downloadTemplate()">📄 Download Template</button>
+    </div>
+
+</div>

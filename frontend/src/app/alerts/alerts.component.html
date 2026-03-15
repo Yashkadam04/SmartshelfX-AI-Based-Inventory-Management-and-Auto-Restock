@@ -1,0 +1,62 @@
+<div class="alerts animate-fade">
+
+    <div class="page-title">Alerts & <span>Notifications</span></div>
+
+
+    <div class="summary-chips">
+        <div class="chip chip-all">{{ alerts.length }} Total</div>
+        <div class="chip chip-unread">{{ unread }} Unread</div>
+    </div>
+
+
+    <div class="toolbar">
+        <select class="filter-sel" [(ngModel)]="filterType" (change)="loadAlerts()">
+            <option value="">All Types</option>
+            <option value="LOW_STOCK">Low Stock</option>
+            <option value="OUT_OF_STOCK">Out of Stock</option>
+            <option value="EXPIRY">Expiry</option>
+            <option value="RESTOCK_SUGGESTED">AI Restock</option>
+        </select>
+        <select class="filter-sel" [(ngModel)]="filterRead" (change)="loadAlerts()">
+            <option value="">All</option>
+            <option value="false">Unread Only</option>
+            <option value="true">Read Only</option>
+        </select>
+        <div class="spacer"></div>
+        <button class="btn btn-warning btn-sm" (click)="markAllRead()">✓ Mark All Read</button>
+        <button class="btn btn-ghost btn-sm" (click)="loadAlerts()">⟳ Refresh</button>
+    </div>
+
+
+    <div class="loading-row" *ngIf="loading">⟳ Loading alerts...</div>
+
+
+    <div class="empty-state" *ngIf="!loading && alerts.length === 0">
+        <div class="empty-icon">✅</div>
+        <p>No alerts found — all clear!</p>
+    </div>
+
+
+    <div *ngIf="!loading && alerts.length > 0">
+        <div class="alert-item" *ngFor="let a of alerts" [class.unread]="!a.is_read" (click)="markRead(a)">
+            <span class="alert-icon">{{ getIcon(a.type) }}</span>
+
+            <div class="alert-body">
+                <div class="alert-msg">{{ a.message }}</div>
+                <div class="alert-meta">
+                    <span class="badge" [ngClass]="{
+            'low' : a.type === 'LOW_STOCK',
+            'out' : a.type === 'OUT_OF_STOCK',
+            'pend': a.type === 'RESTOCK_SUGGESTED',
+            'amber-badge': a.type === 'EXPIRY'
+          }" style="font-size:10px">{{ a.type | titlecase }}</span>
+                    <span class="alert-time">{{ a.created_at | date:'dd MMM, HH:mm' }}</span>
+                    <span class="unread-dot" *ngIf="!a.is_read">● unread</span>
+                </div>
+            </div>
+
+            <button class="dismiss-btn" (click)="$event.stopPropagation(); dismiss(a)" title="Dismiss">✕</button>
+        </div>
+    </div>
+
+</div>

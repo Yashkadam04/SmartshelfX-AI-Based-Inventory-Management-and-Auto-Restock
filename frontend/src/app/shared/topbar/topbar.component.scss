@@ -1,0 +1,240 @@
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: var(--topbar-height);
+    background: rgba(255, 255, 255, 0.015);
+    border-bottom: 1px solid rgba(0, 180, 255, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 99;
+    backdrop-filter: blur(10px);
+}
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.menu-btn {
+    background: rgba(0, 180, 255, 0.08);
+    border: 1px solid rgba(0, 180, 255, 0.18);
+    color: var(--cyan);
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+
+    &:hover {
+        background: rgba(0, 180, 255, 0.18);
+    }
+}
+
+.title-text {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.icon-btn {
+    position: relative;
+    background: rgba(0, 180, 255, 0.08);
+    border: 1px solid rgba(0, 180, 255, 0.18);
+    color: var(--text-secondary);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+
+    &:hover {
+        background: rgba(0, 180, 255, 0.18);
+        color: var(--cyan);
+    }
+}
+
+.badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--red);
+    border-radius: 50%;
+    min-width: 17px;
+    height: 17px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #fff;
+    padding: 0 3px;
+}
+
+
+.notif-wrap {
+    position: relative;
+}
+
+.notif-dropdown {
+    position: absolute;
+    top: 46px;
+    right: 0;
+    width: 320px;
+    background: #0d1117;
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    z-index: 500;
+    overflow: hidden;
+    animation: dropDown 0.2s ease;
+}
+
+@keyframes dropDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.notif-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+
+    .view-all {
+        font-size: 11px;
+        color: var(--cyan);
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+.notif-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+
+    &:hover {
+        background: rgba(0, 180, 255, 0.06);
+    }
+
+    &.unread {
+        background: rgba(0, 180, 255, 0.04);
+        border-left: 3px solid var(--cyan);
+    }
+
+    .notif-icon {
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    .notif-body {
+        flex: 1;
+    }
+
+    .notif-msg {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+        margin-bottom: 3px;
+    }
+
+    .notif-time {
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+}
+
+.notif-empty {
+    padding: 24px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+
+.user-chip {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px 12px 6px 6px;
+}
+
+.avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--cyan-dk), var(--cyan));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.user-meta {
+    display: flex;
+    flex-direction: column;
+
+    .name {
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .role {
+        font-size: 10px;
+        color: rgba(0, 180, 255, 0.6);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+}
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 498;
+}

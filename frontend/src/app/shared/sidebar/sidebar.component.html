@@ -1,0 +1,40 @@
+<aside class="sidebar" [class.collapsed]="collapsed">
+    <div class="sidebar-logo">
+        <div class="logo-text" *ngIf="!collapsed">
+            <h1>Smart<span>ShelfX</span></h1>
+            <p>AI-POWERED INVENTORY</p>
+        </div>
+        <div class="logo-icon" *ngIf="collapsed">SX</div>
+        <button class="toggle-btn" (click)="onToggle()">Menu</button>
+    </div>
+    <div class="role-banner" *ngIf="!collapsed">
+        <span class="role-badge" [ngClass]="getRoleBadgeClass()">{{getRoleLabel()}}</span>
+    </div>
+    <nav class="sidebar-nav">
+        <ng-container *ngFor="let group of visibleGroups()">
+            <div class="nav-section" *ngIf="!collapsed">{{group.section}}</div>
+            <div class="nav-divider" *ngIf="collapsed"></div>
+            <a *ngFor="let item of group.items" class="nav-item" [routerLink]="item.route"
+                [queryParams]="item.queryParams" routerLinkActive="active" [routerLinkActiveOptions]="{exact:false}"
+                [title]="item.label">
+                <span class="nav-icon">{{item.icon}}</span>
+                <span class="nav-label" *ngIf="!collapsed">{{item.label}}</span>
+                <span class="nav-tag" *ngIf="item.tag && !collapsed">{{item.tag}}</span>
+            </a>
+        </ng-container>
+    </nav>
+    <div class="sidebar-footer" *ngIf="!collapsed">
+        <div class="user-row">
+            <div class="avatar">{{auth.getInitials()}}</div>
+            <div class="user-info">
+                <div class="user-name">{{auth.getName()}}</div>
+                <div class="user-role">{{auth.getRole()}}</div>
+            </div>
+        </div>
+        <button class="logout-btn" (click)="logout()">Logout</button>
+    </div>
+    <div class="sidebar-footer-mini" *ngIf="collapsed">
+        <div class="avatar-mini">{{auth.getInitials()}}</div>
+        <button class="logout-btn-mini" (click)="logout()" title="Logout">X</button>
+    </div>
+</aside>

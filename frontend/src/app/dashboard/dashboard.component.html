@@ -1,0 +1,269 @@
+<div class="dashboard">
+
+    <!-- ── ADMIN / MANAGER DASHBOARD ─────────────────────────────── -->
+    <ng-container *ngIf="!isVendor">
+
+        <!-- Category Filter -->
+        <div class="dash-filter-bar">
+            <span class="filter-label">📂 Filter by Category:</span>
+            <select class="cat-select" [(ngModel)]="filterCategory" (change)="onCategoryChange()">
+                <option value="">All Categories</option>
+                <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+            </select>
+            <span class="cat-count" *ngIf="filterCategory">Showing: <strong>{{ filterCategory }}</strong></span>
+        </div>
+
+        <!-- KPI cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-blue">📦</div>
+                <div class="kpi-body">
+                    <div class="kpi-val">{{ summary.totalProducts }}</div>
+                    <div class="kpi-lbl">Total Products</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-amber">⚠️</div>
+                <div class="kpi-body">
+                    <div class="kpi-val">{{ summary.lowStockItems }}</div>
+                    <div class="kpi-lbl">Low Stock Items</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-red">🔴</div>
+                <div class="kpi-body">
+                    <div class="kpi-val">{{ summary.outOfStockItems }}</div>
+                    <div class="kpi-lbl">Out of Stock</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-teal">🛒</div>
+                <div class="kpi-body">
+                    <div class="kpi-val">{{ summary.pendingOrders }}</div>
+                    <div class="kpi-lbl">Pending Orders</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts row -->
+        <div class="charts-row">
+            <div class="chart-card chart-wide">
+                <div class="card-title">
+                    <span>📈 Stock Movement Trend (6 Weeks)</span>
+                </div>
+                <div class="chart-wrap"><canvas #trendCanvas></canvas></div>
+            </div>
+            <div class="chart-card chart-narrow">
+                <div class="card-title">
+                    <span>🥧 Stock by Category</span>
+                </div>
+                <div class="chart-wrap"><canvas #categoryCanvas></canvas></div>
+            </div>
+        </div>
+
+        <!-- Tables row -->
+        <div class="tables-row">
+
+            <!-- Low Stock Items -->
+            <div class="table-card">
+                <div class="card-title">
+                    <span>⚠️ Low Stock Items</span>
+                    <a routerLink="/inventory" class="view-link">View all →</a>
+                </div>
+                <div class="table-scroll">
+                    <table class="dash-table">
+                        <colgroup>
+                            <col style="width: 90px;">
+                            <col style="width: auto;">
+                            <col style="width: 70px;">
+                            <col style="width: 100px;">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Product</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let p of lowStockItems">
+                                <td class="sku-cell">{{ p.sku }}</td>
+                                <td class="name-cell">{{ p.name }}</td>
+                                <td class="num-cell">{{ p.current_stock }}</td>
+                                <td>
+                                    <span class="badge" [ngClass]="getStatusClass(p.current_stock, p.reorder_level)">
+                                        {{ getStatusLabel(p.current_stock, p.reorder_level) }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr *ngIf="lowStockItems.length === 0">
+                                <td colspan="4" class="empty-cell">No low stock items</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Purchase Orders -->
+            <div class="table-card">
+                <div class="card-title">
+                    <span>🛒 Recent Purchase Orders</span>
+                    <a routerLink="/orders" class="view-link">View all →</a>
+                </div>
+                <div class="table-scroll">
+                    <table class="dash-table">
+                        <colgroup>
+                            <col style="width: 70px;">
+                            <col style="width: auto;">
+                            <col style="width: 60px;">
+                            <col style="width: 100px;">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>PO #</th>
+                                <th>Vendor</th>
+                                <th>Qty</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let o of recentOrders">
+                                <td class="sku-cell">#{{ o.id }}</td>
+                                <td class="name-cell">{{ o.vendor?.name || '—' }}</td>
+                                <td class="num-cell">{{ o.quantity }}</td>
+                                <td>
+                                    <span class="badge" [ngClass]="getOrderClass(o.status)">
+                                        {{ o.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr *ngIf="recentOrders.length === 0">
+                                <td colspan="4" class="empty-cell">No purchase orders yet</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </ng-container>
+
+    <!-- ── VENDOR DASHBOARD ───────────────────────────────────────── -->
+    <ng-container *ngIf="isVendor">
+
+        <!-- KPI cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-amber">🕐</div>
+                <div class="kpi-body">
+                    <div class="kpi-val">{{ orderStatusData[0] }}</div>
+                    <div class="kpi-lbl">Pending Orders</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-blue">✅</div>
+                <div class="kpi-body">
+                    <div class="kpi-val">{{ orderStatusData[1] }}</div>
+                    <div class="kpi-lbl">Approved</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-purple">🚚</div>
+                <div class="kpi-body">
+                    <div class="kpi-val">{{ orderStatusData[2] }}</div>
+                    <div class="kpi-lbl">Dispatched</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-teal">📬</div>
+                <div class="kpi-body">
+                    <div class="kpi-val">{{ orderStatusData[3] }}</div>
+                    <div class="kpi-lbl">Delivered</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Pending Approvals Widget — always visible ────────── -->
+        <div class="vendor-pending-section">
+            <div class="vendor-pending-header">
+                <span>🕐 Pending Approvals</span>
+                <span class="vp-count" *ngIf="vendorPendingPOs.length > 0">{{ vendorPendingPOs.length }} awaiting</span>
+                <span class="vp-count-zero" *ngIf="!vendorPendingLoading && vendorPendingPOs.length === 0">All
+                    cleared</span>
+                <a routerLink="/orders" class="view-link" style="margin-left:auto">View all →</a>
+            </div>
+            <div class="vp-loading" *ngIf="vendorPendingLoading">⟳ Loading pending orders...</div>
+            <div class="vp-list" *ngIf="!vendorPendingLoading && vendorPendingPOs.length > 0">
+                <div class="vp-item" *ngFor="let o of vendorPendingPOs">
+                    <div class="vp-item-left">
+                        <span class="vp-po">PO-{{ o.id }}</span>
+                        <span class="vp-name">{{ o.Product?.name || '—' }}</span>
+                        <span class="vp-qty">{{ o.quantity }} units</span>
+                    </div>
+                    <div class="vp-item-actions">
+                        <button class="vp-approve" [disabled]="actioningId === o.id" (click)="approveFromDash(o.id)">
+                            {{ actioningId === o.id ? '⟳' : '✅ Approve' }}
+                        </button>
+                        <button class="vp-reject" [disabled]="actioningId === o.id" (click)="rejectFromDash(o.id)">
+                            {{ actioningId === o.id ? '⟳' : '❌ Reject' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="vp-empty" *ngIf="!vendorPendingLoading && vendorPendingPOs.length === 0">
+                ✅ No pending approvals at the moment.
+            </div>
+        </div>
+
+        <!-- Vendor charts + orders -->
+        <div class="charts-row">
+            <div class="chart-card chart-narrow">
+                <div class="card-title"><span>📊 Order Status</span></div>
+                <div class="chart-wrap"><canvas #orderStatusCanvas></canvas></div>
+            </div>
+            <div class="table-card chart-wide">
+                <div class="card-title">
+                    <span>🛒 My Purchase Orders</span>
+                    <a routerLink="/orders" class="view-link">View all →</a>
+                </div>
+                <div class="table-scroll">
+                    <table class="dash-table">
+                        <colgroup>
+                            <col style="width: 70px;">
+                            <col style="width: auto;">
+                            <col style="width: 70px;">
+                            <col style="width: 110px;">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>PO #</th>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let o of recentOrders">
+                                <td class="sku-cell">#{{ o.id }}</td>
+                                <td class="name-cell">{{ o.Product?.name || '—' }}</td>
+                                <td class="num-cell">{{ o.quantity }}</td>
+                                <td>
+                                    <span class="badge" [ngClass]="getOrderClass(o.status)">
+                                        {{ o.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr *ngIf="recentOrders.length === 0">
+                                <td colspan="4" class="empty-cell">No purchase orders yet</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </ng-container>
+
+</div>

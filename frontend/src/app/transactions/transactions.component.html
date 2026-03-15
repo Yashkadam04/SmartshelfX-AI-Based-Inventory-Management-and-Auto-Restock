@@ -1,0 +1,156 @@
+<div class="transactions animate-fade">
+
+    <div class="page-title">Stock <span>Transactions</span></div>
+
+    <!-- Tabs -->
+    <div class="tabs-bar">
+        <button class="tab" [class.active]="activeTab==='IN'" (click)="switchTab('IN')">📥 Stock-In</button>
+        <button class="tab" [class.active]="activeTab==='OUT'" (click)="switchTab('OUT')">📤 Stock-Out</button>
+        <button class="tab" [class.active]="activeTab==='HISTORY'" (click)="switchTab('HISTORY')">📋 History</button>
+    </div>
+
+    <!-- ── STOCK-IN FORM ── -->
+    <div *ngIf="activeTab==='IN'" class="form-card animate-up">
+        <div class="form-card-title">📥 Record Incoming Shipment</div>
+        <form [formGroup]="inForm" (ngSubmit)="submitIn()">
+            <div class="form-row-3">
+                <div class="form-group">
+                    <label>Product *</label>
+                    <select formControlName="product_id">
+                        <option value="" disabled>Select product</option>
+                        <option *ngFor="let p of products" [value]="p.id">{{ p.sku }} — {{ p.name }}</option>
+                    </select>
+                    <div class="error" *ngIf="inForm.get('product_id')!.touched && inForm.get('product_id')!.invalid">
+                        Required</div>
+                </div>
+                <div class="form-group">
+                    <label>Quantity *</label>
+                    <input type="number" formControlName="quantity" min="1" placeholder="Units received">
+                    <div class="error" *ngIf="inForm.get('quantity')!.touched && inForm.get('quantity')!.invalid">Min 1
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Timestamp</label>
+                    <input type="datetime-local" formControlName="timestamp">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea formControlName="notes" placeholder="Shipment PO#, supplier reference..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-success" [disabled]="submitting">
+                {{ submitting ? '⟳ Saving...' : '✅ Record Stock-In' }}
+            </button>
+        </form>
+    </div>
+
+    <!-- ── STOCK-OUT FORM ── -->
+    <div *ngIf="activeTab==='OUT'" class="form-card animate-up">
+        <div class="form-card-title">📤 Record Dispatch / Sale</div>
+        <form [formGroup]="outForm" (ngSubmit)="submitOut()">
+            <div class="form-row-3">
+                <div class="form-group">
+                    <label>Product *</label>
+                    <select formControlName="product_id">
+                        <option value="" disabled>Select product</option>
+                        <option *ngFor="let p of products" [value]="p.id">{{ p.sku }} — {{ p.name }} ({{ p.current_stock
+                            }} in stock)</option>
+                    </select>
+                    <div class="error" *ngIf="outForm.get('product_id')!.touched && outForm.get('product_id')!.invalid">
+                        Required</div>
+                </div>
+                <div class="form-group">
+                    <label>Quantity *</label>
+                    <input type="number" formControlName="quantity" min="1" placeholder="Units dispatched">
+                    <div class="error" *ngIf="outForm.get('quantity')!.touched && outForm.get('quantity')!.invalid">Min
+                        1</div>
+                </div>
+                <div class="form-group">
+                    <label>Timestamp</label>
+                    <input type="datetime-local" formControlName="timestamp">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea formControlName="notes" placeholder="Order ID, dispatch reference, destination..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-danger" [disabled]="submitting">
+                {{ submitting ? '⟳ Saving...' : '📤 Record Stock-Out' }}
+            </button>
+        </form>
+    </div>
+
+    <!-- ── HISTORY ── -->
+    <div *ngIf="activeTab==='HISTORY'" class="animate-fade">
+        <div class="toolbar">
+            <select class="filter-sel" [(ngModel)]="filterType" (change)="loadTransactions()">
+                <option value="">All Types</option>
+                <option value="IN">Stock-In only</option>
+                <option value="OUT">Stock-Out only</option>
+            </select>
+            <div class="spacer"></div>
+            <span class="total-label">{{ total }} transactions</span>
+        </div>
+
+        <div class="table-card">
+            <div class="loading-row" *ngIf="loading">⟳ Loading transactions...</div>
+
+            <div style="overflow-x:auto" *ngIf="!loading">
+                <table>
+                    <colgroup>
+                        <col style="width:55px">
+                        <col style="width:110px">
+                        <col style="width:auto">
+                        <col style="width:100px">
+                        <col style="width:90px">
+                        <col style="width:130px">
+                        <col style="width:150px">
+                        <col style="width:160px">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>SKU</th>
+                            <th>Product</th>
+                            <th style="text-align:center">Type</th>
+                            <th style="text-align:right">Quantity</th>
+                            <th>Handler</th>
+                            <th>Timestamp</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let t of transactions">
+                            <td style="color:rgba(255,255,255,0.3);font-size:12px">{{ t.id }}</td>
+                            <td><span class="sku-text">{{ t.Product?.sku || '—' }}</span></td>
+                            <td style="font-weight:600;color:rgba(255,255,255,0.9);white-space:normal">{{
+                                t.Product?.name || '—' }}</td>
+                            <td style="text-align:center">
+                                <span class="tx-type"
+                                    [ngClass]="{'type-in': t.type==='IN', 'type-out': t.type==='OUT'}">
+                                    {{ t.type === 'IN' ? '▲ IN' : '▼ OUT' }}
+                                </span>
+                            </td>
+                            <td class="qty-cell">{{ t.quantity | number }}</td>
+                            <td>{{ t.handler?.name || ('User #' + t.handled_by) }}</td>
+                            <td class="ts-cell">{{ t.timestamp | date:'dd MMM yy, HH:mm' }}</td>
+                            <td class="notes-cell">{{ t.notes || '—' }}</td>
+                        </tr>
+                        <tr *ngIf="transactions.length === 0">
+                            <td colspan="8" class="empty-row">No transactions found. Record a Stock-In or Stock-Out
+                                first.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" *ngIf="totalPages > 1">
+                <button class="page-btn" [disabled]="page === 1" (click)="prevPage()">← Prev</button>
+                <span class="page-info">{{ page }} / {{ totalPages }}</span>
+                <button class="page-btn" [disabled]="page >= totalPages" (click)="nextPage()">Next →</button>
+            </div>
+        </div>
+    </div>
+
+</div>

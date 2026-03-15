@@ -1,0 +1,71 @@
+<div class="page animate-fade">
+    <div class="page-title">⚙️ <span>System Settings</span></div>
+    <p class="subtitle">Configure system-wide preferences and behavior</p>
+
+    <div class="settings-grid">
+        <div class="settings-card">
+            <div class="card-title">🏪 General</div>
+            <div class="field-group">
+                <label>Application Name</label>
+                <input type="text" [(ngModel)]="appName">
+            </div>
+            <div class="field-group">
+                <label>Default Currency</label>
+                <select [(ngModel)]="currency">
+                    <option value="INR">INR – Indian Rupee</option>
+                    <option value="USD">USD – US Dollar</option>
+                    <option value="EUR">EUR – Euro</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="card-title">📦 Inventory</div>
+            <div class="field-group">
+                <label>Low Stock Threshold (units)</label>
+                <input type="number" [(ngModel)]="lowStockThreshold" min="1">
+            </div>
+            <div class="toggle-row">
+                <div>
+                    <div class="toggle-label">Auto Restock Alerts</div>
+                    <div class="toggle-sub">Automatically create restock suggestions</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" [(ngModel)]="autoRestock">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="card-title">🤖 AI Forecasting</div>
+            <div class="field-group">
+                <label>Default Forecast Horizon</label>
+                <select [(ngModel)]="forecastHorizon">
+                    <option value="7">7 Days</option>
+                    <option value="14">14 Days</option>
+                    <option value="30">30 Days</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="card-title">🔔 Notifications</div>
+            <div class="toggle-row">
+                <div>
+                    <div class="toggle-label">Email Notifications</div>
+                    <div class="toggle-sub">Send alerts to registered email</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" [(ngModel)]="emailNotifications">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="save-bar">
+        <div class="save-msg" *ngIf="saved">✅ Settings saved successfully</div>
+        <button class="btn-save" (click)="save()">💾 Save Settings</button>
+    </div>
+</div>

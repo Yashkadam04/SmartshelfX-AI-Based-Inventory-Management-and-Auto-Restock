@@ -1,0 +1,94 @@
+<div class="login-page admin-login-page">
+
+    <div class="bg-grid"></div>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="scan-line"></div>
+
+    <!-- Left panel -->
+    <div class="warehouse-panel">
+        <div class="warehouse-overlay"></div>
+        <div class="warehouse-tagline">
+            <div class="admin-badge">🔒 ADMIN PORTAL</div>
+            <h2>Full System<br><span>Control &amp; Access</span></h2>
+            <p>Manage users, inventory, AI forecasting, vendors and complete analytics — all from the Admin Dashboard.
+            </p>
+            <div class="feature-chips">
+                <span class="chip chip-admin">👥 User Management</span>
+                <span class="chip chip-admin">📊 Full Analytics</span>
+                <span class="chip chip-admin">⚙️ System Settings</span>
+            </div>
+            <div class="admin-warning">
+                <span>⚠️ Restricted Access</span> — Only authorised Administrators may log in here.
+            </div>
+        </div>
+    </div>
+
+    <!-- Login card -->
+    <div class="login-panel">
+        <div class="login-card admin-card animate-up">
+
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+
+            <!-- Logo -->
+            <div class="logo">
+                <div class="admin-shield">🔒</div>
+                <h1>Smart<span>Shelf</span>X</h1>
+                <p>ADMINISTRATOR PORTAL</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <h2 class="form-title">Admin Login</h2>
+            <p class="form-subtitle">Enter your administrator credentials to continue</p>
+
+            <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <div class="input-wrap">
+                        <span class="input-icon">&#9993;</span>
+                        <input type="email" formControlName="email" placeholder="Admin Email Address*" class="has-icon"
+                            autocomplete="email">
+                    </div>
+                    <div class="error" *ngIf="email.touched && email.errors?.['required']">Required</div>
+                    <div class="error" *ngIf="email.touched && email.errors?.['email']">Invalid email address</div>
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <div class="input-wrap">
+                        <span class="input-icon">🔒</span>
+                        <input [type]="showPass ? 'text' : 'password'" formControlName="password"
+                            placeholder="Admin Password*" class="has-icon" autocomplete="current-password">
+                        <button type="button" class="eye-btn" (click)="showPass = !showPass">{{ showPass ? '🙈' : '👁'
+                            }}</button>
+                    </div>
+                    <div class="error" *ngIf="password.touched && password.errors?.['required']">Required</div>
+                    <div class="forgot-row">
+                        <a routerLink="/auth/forgot-password" class="forgot-link">Forgot Password?</a>
+                    </div>
+                </div>
+
+                <!-- Error banner -->
+                <div class="error-banner" *ngIf="errorMsg">{{ errorMsg }}</div>
+
+                <button type="submit" class="btn-submit btn-admin" [disabled]="loading">
+                    <span *ngIf="!loading">🔒 ACCESS ADMIN DASHBOARD</span>
+                    <span *ngIf="loading" class="spinner">⟳</span>
+                </button>
+
+            </form>
+
+            <div class="divider" style="margin-top:24px"></div>
+            <p class="footer-link">
+                Not an admin? <a routerLink="/auth/login">Go to regular login</a>
+            </p>
+
+        </div>
+    </div>
+
+</div>

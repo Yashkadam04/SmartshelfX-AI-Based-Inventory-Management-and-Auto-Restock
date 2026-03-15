@@ -1,0 +1,2 @@
+# SmartshelfX-AI-Based-Inventory-Management-and-Auto-Restock
+SmartShelfX is a next-generation inventory management platform designed to optimize  stock levels using AI-powered demand forecasting. The system analyzes historical  sales, seasonal trends, and real-time data to recommend and automate restocking  operations. Built using Angular 19 for the frontend, Node.js (Express) for the backend,  and MySQL

@@ -1,0 +1,181 @@
+<div class="forecasting animate-fade">
+
+    <div class="page-title">🤖 AI <span>Demand Forecasting</span></div>
+    <p class="subtitle">scikit-learn LinearRegression predicts {{ selectedHorizon }}-day stock demand from transaction
+        history</p>
+
+    <div class="ai-status-badge">
+        <div class="pulse"></div>
+        ML SERVICE · scikit-learn · pandas · numpy · FastAPI
+        <span *ngIf="lastRunTime" class="run-time">Last run: {{ lastRunTime }}</span>
+    </div>
+
+    <div class="toolbar">
+        <select class="filter-sel" [(ngModel)]="selectedHorizon">
+            <option value="7">7-Day Forecast</option>
+            <option value="14">14-Day Forecast</option>
+            <option value="30">30-Day Forecast</option>
+        </select>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" (click)="runForecast()" [disabled]="running">
+            {{ running ? '⟳ Running ML Model...' : '🚀 Run Forecast Now' }}
+        </button>
+        <button class="btn btn-warn" (click)="triggerAlerts()" [disabled]="triggering"
+            title="Send alerts to vendors for all HIGH/CRITICAL products">
+            {{ triggering ? '⟳ Sending...' : '🔔 Notify Vendors' }}
+        </button>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="chart-row">
+
+        <!-- ── Bar Chart: ALL Products with scroll ── -->
+        <div class="chart-card chart-wide">
+            <div class="card-header">
+                <div>
+                    <span class="card-title">Predicted Demand vs Current Stock</span>
+                    <span class="product-range" *ngIf="totalBars > 0">
+                        Showing {{ visibleFrom }}–{{ visibleTo }} of {{ totalBars }} products
+                    </span>
+                </div>
+                <div class="legend-pills">
+                    <span class="pill pill-crit">🔴 Critical</span>
+                    <span class="pill pill-high">🟠 High</span>
+                    <span class="pill pill-med">🟡 Medium</span>
+                    <span class="pill pill-low">🟢 Low</span>
+                </div>
+            </div>
+
+            <!-- Canvas -->
+            <div class="chart-wrap">
+                <div class="chart-empty" [style.display]="forecasts.length === 0 && !loading ? 'flex' : 'none'">
+                    <span>⚠ No forecast data — click "🚀 Run Forecast Now"</span>
+                </div>
+                <canvas id="ssx-bar-canvas" style="display:block"></canvas>
+            </div>
+
+            <!-- Scroll Bar -->
+            <div class="scroll-section" *ngIf="totalBars > visibleCount">
+                <div class="scroll-labels">
+                    <span class="scroll-hint">◀ Scroll to see all {{ totalBars }} products ▶</span>
+                </div>
+                <div class="scroll-track">
+                    <input type="range" class="scroll-slider" [min]="0" [max]="scrollMax" [value]="_scrollIndex"
+                        (input)="onScroll(+$any($event.target).value)" (change)="onScroll(+$any($event.target).value)">
+                    <!-- Thumb position indicator -->
+                    <div class="scroll-fill" [style.width.%]="scrollPercent"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Doughnut: Risk Distribution ── -->
+        <div class="chart-card chart-narrow">
+            <div class="card-header">
+                <span class="card-title">Stockout Risk</span>
+                <span class="badge-red" *ngIf="totalAtRisk > 0">⚠ {{ totalAtRisk }} At Risk</span>
+                <span class="badge-green" *ngIf="totalAtRisk === 0 && forecasts.length > 0">✅ All Safe</span>
+            </div>
+            <div class="donut-wrap">
+                <canvas id="ssx-donut-canvas" style="display:block"></canvas>
+                <div class="donut-centre" [style.display]="forecasts.length > 0 ? 'flex' : 'none'">
+                    <div class="donut-num">{{ forecasts.length }}</div>
+                    <div class="donut-sub">products</div>
+                </div>
+                <div class="chart-empty" [style.display]="forecasts.length === 0 && !loading ? 'flex' : 'none'">
+                    <span>No data</span>
+                </div>
+            </div>
+            <div class="risk-legend" *ngIf="forecasts.length > 0">
+                <div class="rl-row"><span class="dot" style="background:#ff4d6d"></span>Critical <strong
+                        style="color:#ff4d6d">{{ riskCounts.CRITICAL }}</strong></div>
+                <div class="rl-row"><span class="dot" style="background:#ff8c00"></span>High <strong
+                        style="color:#ff8c00">{{ riskCounts.HIGH }}</strong></div>
+                <div class="rl-row"><span class="dot" style="background:#ffaa00"></span>Medium <strong
+                        style="color:#ffaa00">{{ riskCounts.MEDIUM }}</strong></div>
+                <div class="rl-row"><span class="dot" style="background:#00ffcc"></span>Low <strong
+                        style="color:#00ffcc">{{ riskCounts.LOW }}</strong></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Forecast Table -->
+    <div class="table-card">
+        <div class="table-topbar">
+            Forecast Summary — Next {{ selectedHorizon }} Days
+            <span class="tbl-count">{{ forecasts.length }} products</span>
+        </div>
+        <div class="loading-row" *ngIf="loading">⟳ Running forecast model...</div>
+        <div style="overflow-x:auto" *ngIf="!loading">
+            <table>
+                <colgroup>
+                    <col style="width:110px">
+                    <col style="width:auto">
+                    <col style="width:100px">
+                    <col style="width:140px">
+                    <col style="width:160px">
+                    <col style="width:120px">
+                    <col style="width:130px">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Product</th>
+                        <th style="text-align:center">Stock</th>
+                        <th style="text-align:center">{{ selectedHorizon }}d Demand</th>
+                        <th>Confidence</th>
+                        <th style="text-align:center">Risk</th>
+                        <th style="text-align:center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let f of sortedForecasts()">
+                        <td><code class="sku-tag">{{ f.Product?.sku || '—' }}</code></td>
+                        <td style="font-weight:600;color:rgba(255,255,255,0.9);white-space:normal">{{ f.Product?.name ||
+                            'Product #'+f.product_id }}</td>
+                        <td style="text-align:center;font-family:monospace;font-weight:700"
+                            [style.color]="(f.Product?.current_stock||0)<=(f.Product?.reorder_level||0)?'#ff4d6d':'#00ffcc'">
+                            {{ f.Product?.current_stock ?? '—' }}
+                        </td>
+                        <td style="text-align:center;font-family:monospace;font-weight:700"
+                            [style.color]="riskFg(f.risk_level)">
+                            {{ f.predicted_qty | number:'1.0-0' }} units
+                        </td>
+                        <td>
+                            <div class="conf-row">
+                                <div class="conf-bar">
+                                    <div class="conf-fill" [style.width]="getConfidencePct(f.confidence)"
+                                        [style.background]="f.confidence>=0.8?'#00ffcc':f.confidence>=0.6?'#ffaa00':'#ff4d6d'">
+                                    </div>
+                                </div>
+                                <span class="conf-lbl">{{ getConfidencePct(f.confidence) }}</span>
+                            </div>
+                        </td>
+                        <td style="text-align:center">
+                            <span class="risk-badge" [ngClass]="getRiskClass(f.risk_level)">
+                                {{
+                                f.risk_level==='CRITICAL'?'🔴':f.risk_level==='HIGH'?'🟠':f.risk_level==='MEDIUM'?'🟡':'🟢'
+                                }}
+                                {{ f.risk_level }}
+                            </span>
+                        </td>
+                        <td style="text-align:center">
+                            <a *ngIf="f.risk_level==='CRITICAL'||f.risk_level==='HIGH'" routerLink="/orders"
+                                class="action-chip chip-urgent">
+                                {{ f.risk_level==='CRITICAL'?'🚨 Restock Now':'⚠ Restock Soon' }}
+                            </a>
+                            <span *ngIf="f.risk_level==='MEDIUM'" class="action-chip chip-watch">👁 Watch</span>
+                            <span *ngIf="f.risk_level==='LOW'" class="action-chip chip-ok">✅ Stable</span>
+                        </td>
+                    </tr>
+                    <tr *ngIf="forecasts.length===0 && !loading">
+                        <td colspan="7" style="text-align:center;padding:48px;color:rgba(255,255,255,0.25)">
+                            ⚠ No forecast data yet. Import your products first, then click "🚀 Run Forecast Now".
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>

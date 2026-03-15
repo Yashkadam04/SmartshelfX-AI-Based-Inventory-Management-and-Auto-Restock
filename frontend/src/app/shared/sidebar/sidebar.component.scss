@@ -1,0 +1,223 @@
+.sidebar {
+    width: var(--sidebar-width);
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.025);
+    border-right: 1px solid rgba(0, 180, 255, 0.12);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 200;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+
+    &.collapsed {
+        width: 68px;
+
+        .nav-label {
+            display: none;
+        }
+    }
+}
+
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 16px 18px 20px;
+    border-bottom: 1px solid rgba(0, 180, 255, 0.1);
+    min-height: 68px;
+
+    h1 {
+        font-family: var(--font-display);
+        font-size: 17px;
+        color: #fff;
+        white-space: nowrap;
+
+        span {
+            color: var(--cyan);
+        }
+    }
+
+    p {
+        font-size: 9px;
+        color: rgba(0, 180, 255, 0.5);
+        letter-spacing: 2px;
+        margin-top: 3px;
+        white-space: nowrap;
+    }
+}
+
+.logo-icon {
+    font-family: var(--font-display);
+    font-size: 18px;
+    color: var(--cyan);
+    font-weight: 700;
+    flex: 1;
+    text-align: center;
+}
+
+.toggle-btn {
+    background: rgba(0, 180, 255, 0.08);
+    border: 1px solid rgba(0, 180, 255, 0.2);
+    color: var(--cyan);
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+
+    &:hover {
+        background: rgba(0, 180, 255, 0.2);
+    }
+}
+
+
+.sidebar-nav {
+    flex: 1;
+    padding: 14px 10px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.45);
+    text-decoration: none;
+    transition: all 0.2s;
+    margin-bottom: 3px;
+    white-space: nowrap;
+
+    &:hover {
+        background: rgba(0, 180, 255, 0.08);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    &.active {
+        background: rgba(0, 180, 255, 0.14);
+        color: var(--cyan);
+        box-shadow: inset 3px 0 0 var(--cyan);
+    }
+}
+
+.nav-icon {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+
+.sidebar-footer {
+    padding: 14px 16px;
+    border-top: 1px solid rgba(0, 180, 255, 0.08);
+}
+
+.user-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--cyan-dk), var(--cyan));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.user-name {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-role {
+    font-size: 10px;
+    color: rgba(0, 180, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.logout-btn {
+    width: 100%;
+    background: rgba(255, 77, 109, 0.08);
+    border: 1px solid rgba(255, 77, 109, 0.2);
+    color: rgba(255, 77, 109, 0.7);
+    border-radius: 7px;
+    padding: 7px;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+        background: rgba(255, 77, 109, 0.15);
+        color: var(--red);
+    }
+}
+
+
+.sidebar-footer-mini {
+    padding: 10px;
+    border-top: 1px solid rgba(0, 180, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.avatar-mini {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--cyan-dk), var(--cyan));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+    color: #fff;
+}
+
+.logout-btn-mini {
+    background: rgba(255, 77, 109, 0.08);
+    border: 1px solid rgba(255, 77, 109, 0.2);
+    color: rgba(255, 77, 109, 0.6);
+    border-radius: 6px;
+    width: 32px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+
+    &:hover {
+        background: rgba(255, 77, 109, 0.15);
+        color: var(--red);
+    }
+}

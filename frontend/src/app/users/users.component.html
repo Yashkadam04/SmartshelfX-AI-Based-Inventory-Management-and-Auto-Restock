@@ -1,0 +1,105 @@
+<div class="page animate-fade">
+    <div class="page-title">👥 <span>Users Management</span></div>
+    <p class="subtitle">Manage system users, roles, access permissions and credentials</p>
+
+    <div class="toolbar">
+        <input class="search-input" type="text" placeholder="🔍 Search by name or email..." [(ngModel)]="search">
+        <select class="filter-sel" [(ngModel)]="filterRole">
+            <option value="">All Roles</option>
+            <option value="ADMIN">Admin</option>
+            <option value="MANAGER">Manager</option>
+            <option value="VENDOR">Vendor</option>
+        </select>
+        <div class="spacer"></div>
+        <span class="count-badge">{{ filtered.length }} users</span>
+    </div>
+
+    <div class="table-card">
+        <div class="loading-row" *ngIf="loading">⟳ Loading users...</div>
+        <div style="overflow-x:auto" *ngIf="!loading">
+            <table>
+                <colgroup>
+                    <col style="width:200px">
+                    <col style="width:auto">
+                    <col style="width:110px">
+                    <col style="width:140px">
+                    <col style="width:160px">
+                    <col style="width:130px">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th style="text-align:center">Role</th>
+                        <th>Registered</th>
+                        <th>Password</th>
+                        <th style="text-align:center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let u of filtered">
+                        <td>
+                            <div class="user-cell">
+                                <div class="avatar">{{ getInitials(u.name) }}</div>
+                                <span class="user-name">{{ u.name }}</span>
+                            </div>
+                        </td>
+                        <td class="email-cell">{{ u.email }}</td>
+                        <td style="text-align:center">
+                            <span class="role-badge" [ngClass]="getRoleClass(u.role)">{{ u.role }}</span>
+                        </td>
+                        <td class="date-cell">
+                            <div class="date-line">{{ u.createdAt || u.created_at | date:'dd MMM yyyy' }}</div>
+                            <div class="time-line">{{ u.createdAt || u.created_at | date:'HH:mm' }}</div>
+                        </td>
+                        <td>
+                            <div class="pw-cell">
+                                <span class="pw-mask" *ngIf="!showPw[u.id]">••••••••</span>
+                                <span class="pw-hash" *ngIf="showPw[u.id]" title="Bcrypt hash (not reversible)">{{
+                                    u.password_hash || '[hashed]' }}</span>
+                                <button class="icon-btn" (click)="togglePw(u.id)"
+                                    [title]="showPw[u.id] ? 'Hide' : 'Show hash'">
+                                    {{ showPw[u.id] ? '🙈' : '👁' }}
+                                </button>
+                            </div>
+                        </td>
+                        <td style="text-align:center">
+                            <div class="action-row">
+                                <button class="btn-action btn-reset" (click)="openReset(u)"
+                                    title="Reset password">🔑</button>
+                                <button class="btn-action btn-delete" (click)="deleteUser(u)" title="Delete user"
+                                    *ngIf="u.role !== 'ADMIN'">🗑</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr *ngIf="filtered.length === 0">
+                        <td colspan="6" style="text-align:center;padding:48px;color:rgba(255,255,255,0.25)">No users
+                            found</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal-overlay" *ngIf="resetModal" (click)="closeReset()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+        <div class="modal-title">🔑 Reset Password</div>
+        <div class="modal-sub">Setting new password for <strong>{{ resetTarget?.name }}</strong></div>
+        <div class="modal-field">
+            <label>New Password</label>
+            <input type="password" [(ngModel)]="newPassword" placeholder="Min 8 chars, A-Z, 0-9, @#_">
+        </div>
+        <div class="modal-field">
+            <label>Confirm Password</label>
+            <input type="password" [(ngModel)]="confirmPassword" placeholder="Repeat new password">
+        </div>
+        <div class="modal-err" *ngIf="resetError">{{ resetError }}</div>
+        <div class="modal-ok" *ngIf="resetSuccess">✅ Password reset successfully!</div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" (click)="closeReset()">Cancel</button>
+            <button class="btn-modal-save" (click)="submitReset()">Save</button>
+        </div>
+    </div>
+</div>

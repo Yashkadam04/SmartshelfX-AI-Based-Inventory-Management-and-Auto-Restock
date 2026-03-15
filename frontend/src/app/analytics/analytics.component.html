@@ -1,0 +1,77 @@
+<div class="analytics animate-fade">
+
+    <div class="page-title">Analytics & <span>Reports</span></div>
+
+
+    <div class="toolbar" style="margin-bottom:20px">
+        <div class="spacer"></div>
+        <button class="btn btn-warning">📊 Export Excel</button>
+        <button class="btn btn-primary">📄 Export PDF</button>
+    </div>
+
+
+    <div class="kpi-grid">
+        <div class="kpi-card blue">
+            <span class="kpi-icon">📦</span>
+            <div class="kpi-label">Total Products</div>
+            <div class="kpi-value">{{ summary.totalProducts | number }}</div>
+            <div class="kpi-sub">Across all categories</div>
+        </div>
+        <div class="kpi-card green">
+            <span class="kpi-icon">✅</span>
+            <div class="kpi-label">Fill Rate</div>
+            <div class="kpi-value">97.4%</div>
+            <div class="kpi-sub">Orders fulfilled on time</div>
+        </div>
+        <div class="kpi-card amber">
+            <span class="kpi-icon">📈</span>
+            <div class="kpi-label">Monthly Turnover</div>
+            <div class="kpi-value">₹8.2M</div>
+            <div class="kpi-sub">↑ 12% vs last month</div>
+        </div>
+        <div class="kpi-card red">
+            <span class="kpi-icon">🚫</span>
+            <div class="kpi-label">Stockout Events</div>
+            <div class="kpi-value">7</div>
+            <div class="kpi-sub">↓ 3 less than last month</div>
+        </div>
+    </div>
+
+
+    <div class="two-col" style="margin-bottom:20px">
+        <div class="card">
+            <div class="card-title">Monthly Purchase vs Sales <span class="mini-badge blue">6 Months</span></div>
+            <canvas baseChart [data]="barData" [options]="barOptions" [type]="'bar'" style="max-height:220px"></canvas>
+        </div>
+        <div class="card">
+            <div class="card-title">Stock by Category</div>
+            <canvas baseChart [data]="catData" [options]="catOptions" [type]="'doughnut'"
+                style="max-height:220px"></canvas>
+        </div>
+    </div>
+
+
+    <div class="two-col">
+        <div class="card">
+            <div class="card-title">Inventory Level Trend <span class="mini-badge green">Weekly</span></div>
+            <canvas baseChart [data]="invData" [options]="invOptions" [type]="'line'" style="max-height:180px"></canvas>
+        </div>
+        <div class="card">
+            <div class="card-title">Top Restocked Items</div>
+            <div class="top-items">
+                <div class="top-item" *ngFor="let item of topItems; let i = index">
+                    <span class="rank">{{ i + 1 }}</span>
+                    <div class="item-info">
+                        <span class="item-name">{{ item.name }}</span>
+                        <span class="item-sku sku-text">{{ item.sku }}</span>
+                    </div>
+                    <div class="bar-wrap">
+                        <div class="bar-fill" [style.width]="getBarWidth(item.total_restocked)"></div>
+                    </div>
+                    <span class="item-val">{{ item.total_restocked }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

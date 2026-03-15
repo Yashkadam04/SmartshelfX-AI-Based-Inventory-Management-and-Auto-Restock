@@ -1,0 +1,13 @@
+<div class="layout-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
+
+    <app-sidebar [collapsed]="sidebarCollapsed()" (toggle)="toggleSidebar()" />
+
+    <div class="layout-main">
+        <app-topbar [pageTitle]="pageTitle()" (sidebarToggle)="toggleSidebar()" />
+
+        <main class="layout-content">
+            <router-outlet />
+        </main>
+    </div>
+
+</div>
