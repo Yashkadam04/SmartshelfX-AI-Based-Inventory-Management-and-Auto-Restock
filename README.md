@@ -393,9 +393,7 @@ Start services in this order:
 3. Filter by type or read/unread status
 4. Click an alert to mark it as read, or dismiss it
 
----
-
-## 🗄️ Database Models
+ 🗄️ Database Models
 
 | Model | Description |
 |-------|-------------|
@@ -406,9 +404,7 @@ Start services in this order:
 | `Alert` | Vendor-targeted notifications |
 | `ForecastResult` | AI model output per product per date |
 
----
-
-## 📧 Email Notifications
+ 📧 Email Notifications
 
 SmartShelfX sends automated emails in two scenarios:
 
@@ -420,9 +416,7 @@ SmartShelfX sends automated emails in two scenarios:
    - Triggered when a vendor approves or cancels a PO
    - Contains the decision, product details, and order summary
 
----
-
-## 🤝 Contributing
+ 🤝 Contributing
 
 1. Fork the repository
 2. Create your feature branch: `git checkout -b feature/amazing-feature`
@@ -430,19 +424,7 @@ SmartShelfX sends automated emails in two scenarios:
 4. Push to the branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
 
----
 
-## 📄 License
+👨‍💻 Author:-Shreyash Jokare
 
-This project is licensed under the MIT License.
-
----
-
-## 👨‍💻 Author
-
-**Ramcharan Sadu**  
-GitHub: [@ramcharansadu46-bit](https://github.com/ramcharansadu46-bit)
-
----
-
-*Built with ❤️ using Angular 19, Node.js, MongoDB & Python ML*
+GitHub: https://github.com/Shreyash0895
