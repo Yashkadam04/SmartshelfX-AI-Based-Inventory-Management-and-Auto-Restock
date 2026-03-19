@@ -173,7 +173,7 @@ Make sure you have the following installed before setting up the project:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/ramcharansadu46-bit/SmartShelfx.git
+git clone https://github.com/Shreyash0895/SmartshelfX-AI-Based-Inventory-Management-and-Auto-Restock.git
 cd SmartShelfx
 ```
 
