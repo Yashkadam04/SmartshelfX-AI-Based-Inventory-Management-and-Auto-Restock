@@ -6,7 +6,13 @@
 ![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?style=for-the-badge&logo=mongodb)
 ![Python](https://img.shields.io/badge/Python-ML_Service-3776AB?style=for-the-badge&logo=python)
 
-> SmartShelfX is a next-generation, full-stack inventory management platform that uses AI-powered demand forecasting to analyze historical sales, seasonal trends, and real-time data — and automatically recommends or triggers restocking operations.
+> SmartShelfX is a next-generation inventory management platform designed to optimize 
+stock levels using AI-powered demand forecasting. The system analyzes historical 
+sales, seasonal trends, and real-time data to recommend and automate restocking 
+operations. Built using Angular 19 for the frontend, Node.js (Express) for the backend, 
+and MySQL for data storage, SmartShelfX provides a smart dashboard, real-time alerts, 
+and automated purchase order suggestions, ensuring minimal stockouts and 
+overstocking. 
 
 ---
 
