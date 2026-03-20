@@ -2,14 +2,7 @@
 
     <div class="page-title">Analytics & <span>Reports</span></div>
 
-
-    <div class="toolbar" style="margin-bottom:20px">
-        <div class="spacer"></div>
-        <button class="btn btn-warning">📊 Export Excel</button>
-        <button class="btn btn-primary">📄 Export PDF</button>
-    </div>
-
-
+    <!-- ── KPI Cards ─────────────────────────────────────────────── -->
     <div class="kpi-grid">
         <div class="kpi-card blue">
             <span class="kpi-icon">📦</span>
@@ -17,60 +10,134 @@
             <div class="kpi-value">{{ summary.totalProducts | number }}</div>
             <div class="kpi-sub">Across all categories</div>
         </div>
-        <div class="kpi-card green">
-            <span class="kpi-icon">✅</span>
-            <div class="kpi-label">Fill Rate</div>
-            <div class="kpi-value">97.4%</div>
-            <div class="kpi-sub">Orders fulfilled on time</div>
-        </div>
         <div class="kpi-card amber">
-            <span class="kpi-icon">📈</span>
-            <div class="kpi-label">Monthly Turnover</div>
-            <div class="kpi-value">₹8.2M</div>
-            <div class="kpi-sub">↑ 12% vs last month</div>
+            <span class="kpi-icon">⚠️</span>
+            <div class="kpi-label">Low Stock</div>
+            <div class="kpi-value">{{ summary.lowStockItems | number }}</div>
+            <div class="kpi-sub">Below reorder level</div>
         </div>
         <div class="kpi-card red">
-            <span class="kpi-icon">🚫</span>
-            <div class="kpi-label">Stockout Events</div>
-            <div class="kpi-value">7</div>
-            <div class="kpi-sub">↓ 3 less than last month</div>
+            <span class="kpi-icon">🚨</span>
+            <div class="kpi-label">Out of Stock</div>
+            <div class="kpi-value">{{ summary.outOfStockItems | number }}</div>
+            <div class="kpi-sub">Needs immediate action</div>
+        </div>
+        <div class="kpi-card purple">
+            <span class="kpi-icon">🛒</span>
+            <div class="kpi-label">Pending Orders</div>
+            <div class="kpi-value">{{ summary.pendingOrders | number }}</div>
+            <div class="kpi-sub">Awaiting vendor approval</div>
+        </div>
+        <div class="kpi-card teal">
+            <span class="kpi-icon">📊</span>
+            <div class="kpi-label">Total Stock Units</div>
+            <div class="kpi-value">{{ totalStock | number }}</div>
+            <div class="kpi-sub">Across all products</div>
+        </div>
+        <div class="kpi-card green">
+            <span class="kpi-icon">✅</span>
+            <div class="kpi-label">POs Delivered</div>
+            <div class="kpi-value">{{ poStatusData.delivered | number }}</div>
+            <div class="kpi-sub">Successfully fulfilled</div>
         </div>
     </div>
 
-
-    <div class="two-col" style="margin-bottom:20px">
-        <div class="card">
-            <div class="card-title">Monthly Purchase vs Sales <span class="mini-badge blue">6 Months</span></div>
-            <canvas baseChart [data]="barData" [options]="barOptions" [type]="'bar'" style="max-height:220px"></canvas>
+    <!-- ── Row 1: Stock Trend + PO Status ────────────────────────── -->
+    <div class="charts-row">
+        <div class="chart-card chart-wide">
+            <div class="chart-card-header">
+                <span class="card-title" style="margin-bottom:0">📈 Stock Movement</span>
+                <select class="period-sel" [(ngModel)]="selectedPeriod" (change)="onPeriodChange()">
+                    <option value="day">Day (Last 30 days)</option>
+                    <option value="month">Month (Last 12 months)</option>
+                    <option value="year">Year (Last 5 years)</option>
+                </select>
+            </div>
+            <div class="chart-loading" *ngIf="loadingChart">⟳ Loading chart...</div>
+            <div class="chart-wrap" *ngIf="!loadingChart">
+                <canvas #stockTrendCanvas></canvas>
+            </div>
+            <div class="chart-empty" *ngIf="!loadingChart && !trendLabels?.length">No transaction data yet</div>
         </div>
-        <div class="card">
-            <div class="card-title">Stock by Category</div>
-            <canvas baseChart [data]="catData" [options]="catOptions" [type]="'doughnut'"
-                style="max-height:220px"></canvas>
+        <div class="chart-card chart-narrow">
+            <div class="card-title">🛒 PO Status Breakdown</div>
+            <div class="chart-wrap"><canvas #poStatusCanvas></canvas></div>
+            <div class="po-legend">
+                <div class="po-leg-item"><span class="dot" style="background:#ffaa00"></span>Pending: {{
+                    poStatusData.pending }}</div>
+                <div class="po-leg-item"><span class="dot" style="background:#00b4ff"></span>Approved: {{
+                    poStatusData.approved }}</div>
+                <div class="po-leg-item"><span class="dot" style="background:#a855f7"></span>Dispatched: {{
+                    poStatusData.dispatched }}</div>
+                <div class="po-leg-item"><span class="dot" style="background:#00ffcc"></span>Delivered: {{
+                    poStatusData.delivered }}</div>
+                <div class="po-leg-item"><span class="dot" style="background:#ff4d6d"></span>Cancelled: {{
+                    poStatusData.cancelled }}</div>
+            </div>
         </div>
     </div>
 
-
-    <div class="two-col">
-        <div class="card">
-            <div class="card-title">Inventory Level Trend <span class="mini-badge green">Weekly</span></div>
-            <canvas baseChart [data]="invData" [options]="invOptions" [type]="'line'" style="max-height:180px"></canvas>
+    <!-- ── Row 2: Category Breakdown + Top Restocked ─────────────── -->
+    <div class="charts-row">
+        <div class="chart-card chart-narrow">
+            <div class="card-title">🗂️ Stock by Category</div>
+            <div class="chart-wrap"><canvas #categoryCanvas></canvas></div>
+            <div class="chart-empty" *ngIf="!categories.length">No category data</div>
         </div>
-        <div class="card">
-            <div class="card-title">Top Restocked Items</div>
-            <div class="top-items">
+        <div class="chart-card chart-wide">
+            <div class="card-title">🔄 Top Restocked Products</div>
+            <div class="top-list" *ngIf="topItems.length > 0">
                 <div class="top-item" *ngFor="let item of topItems; let i = index">
-                    <span class="rank">{{ i + 1 }}</span>
-                    <div class="item-info">
-                        <span class="item-name">{{ item.name }}</span>
-                        <span class="item-sku sku-text">{{ item.sku }}</span>
+                    <div class="top-rank">#{{ i + 1 }}</div>
+                    <div class="top-info">
+                        <div class="top-name">{{ item.name }}</div>
+                        <code class="top-sku">{{ item.sku }}</code>
                     </div>
-                    <div class="bar-wrap">
-                        <div class="bar-fill" [style.width]="getBarWidth(item.total_restocked)"></div>
+                    <div class="top-bar-wrap">
+                        <div class="top-bar" [style.width]="getBarWidth(item.total_restocked)"></div>
                     </div>
-                    <span class="item-val">{{ item.total_restocked }}</span>
+                    <div class="top-val">{{ item.total_restocked | number }} units</div>
                 </div>
             </div>
+            <div class="chart-empty" *ngIf="topItems.length === 0">No restock transactions yet</div>
+        </div>
+    </div>
+
+    <!-- ── Row 3: Low Stock Table ─────────────────────────────────── -->
+    <div class="table-card">
+        <div class="card-title">⚠️ Low Stock & Critical Products</div>
+        <div class="loading-row" *ngIf="loading">⟳ Loading...</div>
+        <div style="overflow-x:auto" *ngIf="!loading">
+            <table>
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th style="text-align:center">Stock</th>
+                        <th style="text-align:center">Reorder Level</th>
+                        <th style="text-align:center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let p of lowStockProducts">
+                        <td><span class="sku-tag">{{ p.sku }}</span></td>
+                        <td class="name-cell">{{ p.name }}</td>
+                        <td style="font-size:13px;color:rgba(255,255,255,0.5)">{{ p.category }}</td>
+                        <td style="text-align:center;font-weight:700"
+                            [style.color]="p.current_stock === 0 ? '#ff4d6d' : p.current_stock <= p.reorder_level * 0.5 ? '#ff4d6d' : '#ffaa00'">
+                            {{ p.current_stock }}
+                        </td>
+                        <td style="text-align:center;color:rgba(255,255,255,0.5)">{{ p.reorder_level }}</td>
+                        <td style="text-align:center">
+                            <span class="badge" [ngClass]="statusClass(p)">{{ statusLabel(p) }}</span>
+                        </td>
+                    </tr>
+                    <tr *ngIf="lowStockProducts.length === 0">
+                        <td colspan="6" class="empty-row">✅ All products are well stocked!</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
