@@ -118,20 +118,36 @@ router.get('/', async (req, res) => {
         // Status filter using aggregation for computed fields
         let products, total;
         if (status) {
-            const matchStage = { ...query };
             let exprFilter;
-            if (status === 'out')      exprFilter = { $eq: ['$current_stock', 0] };
+            if (status === 'out')           exprFilter = { $eq: ['$current_stock', 0] };
             else if (status === 'critical') exprFilter = { $and: [{ $gt: ['$current_stock', 0] }, { $lte: ['$current_stock', { $multiply: ['$reorder_level', 0.5] }] }] };
-            else if (status === 'low') exprFilter = { $and: [{ $gt: ['$current_stock', { $multiply: ['$reorder_level', 0.5] }] }, { $lte: ['$current_stock', '$reorder_level'] }] };
+            else if (status === 'low')      exprFilter = { $and: [{ $gt: ['$current_stock', { $multiply: ['$reorder_level', 0.5] }] }, { $lte: ['$current_stock', '$reorder_level'] }] };
             else if (status === 'in_stock') exprFilter = { $gt: ['$current_stock', '$reorder_level'] };
 
             const pipeline = [
-                { $match: matchStage },
+                { $match: query },
                 { $match: { $expr: exprFilter } },
-                { $lookup: { from: 'users', localField: 'vendor_id', foreignField: '_id', as: 'vendor' } },
-                { $unwind: { path: '$vendor', preserveNullAndEmpty: true } },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'vendor_id',
+                        foreignField: '_id',
+                        as: 'vendor_id'
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$vendor_id',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
                 { $sort: { updatedAt: -1 } },
-                { $facet: { data: [{ $skip: skip }, { $limit: Number(limit) }], count: [{ $count: 'total' }] } }
+                {
+                    $facet: {
+                        data:  [{ $skip: skip }, { $limit: Number(limit) }],
+                        count: [{ $count: 'total' }]
+                    }
+                }
             ];
             const [result] = await Product.aggregate(pipeline);
             products = result.data;
@@ -174,6 +190,12 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// Helper — sanitize vendor_id: treat "undefined", "null", "", null, undefined all as null
+const sanitizeVendorId = (v) => {
+    if (!v || v === 'undefined' || v === 'null' || v === 'false') return null;
+    return v;
+};
+
 // POST /api/products
 router.post('/', requireRole('ADMIN', 'MANAGER'), async (req, res) => {
     try {
@@ -185,7 +207,7 @@ router.post('/', requireRole('ADMIN', 'MANAGER'), async (req, res) => {
 
         const product = await Product.create({
             name, sku, category,
-            vendor_id:     vendor_id     || null,
+            vendor_id:     sanitizeVendorId(vendor_id),
             reorder_level: reorder_level || 10,
             current_stock: current_stock || 0,
             unit_price:    unit_price    || 0,
@@ -214,7 +236,7 @@ router.put('/:id', requireRole('ADMIN', 'MANAGER'), async (req, res) => {
             name:          name          ?? product.name,
             sku:           sku           ?? product.sku,
             category:      category      ?? product.category,
-            vendor_id:     vendor_id     ?? product.vendor_id,
+            vendor_id:     sanitizeVendorId(vendor_id) ?? product.vendor_id,
             reorder_level: reorder_level ?? product.reorder_level,
             current_stock: current_stock ?? product.current_stock,
             unit_price:    unit_price    ?? product.unit_price,

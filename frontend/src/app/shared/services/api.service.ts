@@ -121,6 +121,9 @@ export class ApiService {
     getCategoryBreakdown(): Observable<CategoryBreakdown[]> {
         return this.http.get<CategoryBreakdown[]>(`${this.API}/analytics/category-breakdown`);
     }
+    getStockMovement(period: 'day' | 'month' | 'year'): Observable<any[]> {
+        return this.http.get<any[]>(`${this.API}/analytics/stock-movement`, { params: this.params({ period }) });
+    }
 
     getUsers(): Observable<any[]> {
         return this.http.get<any[]>(`${this.API}/auth/users`);

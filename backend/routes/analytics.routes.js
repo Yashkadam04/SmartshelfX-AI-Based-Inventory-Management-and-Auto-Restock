@@ -8,19 +8,15 @@ router.use(authenticate);
 // GET /api/analytics/summary
 router.get('/summary', async (req, res) => {
     try {
-        const [totalProducts, lowStockItems, outOfStockItems, pendingOrders] = await Promise.all([
+        const [totalProducts, outOfStockItems, pendingOrders, lowStock] = await Promise.all([
             Product.countDocuments(),
-            Product.countDocuments({ $where: 'this.current_stock > 0 && this.current_stock <= this.reorder_level' }),
             Product.countDocuments({ current_stock: 0 }),
-            PurchaseOrder.countDocuments({ status: 'PENDING', vendor_id: { $ne: null } })
-        ]);
-
-        // Use aggregation for low stock — $where is slow on large collections
-        const lowStock = await Product.aggregate([
-            { $match: { current_stock: { $gt: 0 } } },
-            { $project: { isLow: { $lte: ['$current_stock', '$reorder_level'] } } },
-            { $match: { isLow: true } },
-            { $count: 'count' }
+            PurchaseOrder.countDocuments({ status: 'PENDING', vendor_id: { $ne: null } }),
+            Product.aggregate([
+                { $match: { current_stock: { $gt: 0 } } },
+                { $match: { $expr: { $lte: ['$current_stock', '$reorder_level'] } } },
+                { $count: 'count' }
+            ])
         ]);
 
         res.json({
