@@ -212,6 +212,20 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
         if (p.current_stock <= p.reorder_level * 0.5) return 'badge-crit';
         if (p.current_stock <= p.reorder_level) return 'badge-low';
         return 'badge-ok';
+<<<<<<< HEAD
+    }
+
+    statusLabel(p: any): string {
+        if (p.current_stock === 0) return 'Out of Stock';
+        if (p.current_stock <= p.reorder_level * 0.5) return 'Critical';
+        if (p.current_stock <= p.reorder_level) return 'Low Stock';
+        return 'In Stock';
+    }
+
+    get totalStock(): number {
+        return this.categories.reduce((s, c) => s + Number(c.total_stock), 0);
+=======
+>>>>>>> 69d2af080cc7179ddf6ab6a06f250101ff3e2e9f
     }
 
     statusLabel(p: any): string {
