@@ -1,66 +1,60 @@
 const express = require('express');
-const { Product, StockTransaction, PurchaseOrder } = require('../models');
+const { Op } = require('sequelize');
+const { sequelize, Product, StockTransaction, PurchaseOrder, Alert } = require('../models');
 const { authenticate } = require('../middleware/auth.middleware');
 
 const router = express.Router();
+
 router.use(authenticate);
 
-// GET /api/analytics/summary
 router.get('/summary', async (req, res) => {
     try {
-        const [totalProducts, lowStockItems, outOfStockItems, pendingOrders] = await Promise.all([
-            Product.countDocuments(),
-            Product.countDocuments({ $where: 'this.current_stock > 0 && this.current_stock <= this.reorder_level' }),
-            Product.countDocuments({ current_stock: 0 }),
-            PurchaseOrder.countDocuments({ status: 'PENDING', vendor_id: { $ne: null } })
-        ]);
+        const totalProducts = await Product.count();
 
-        // Use aggregation for low stock — $where is slow on large collections
-        const lowStock = await Product.aggregate([
-            { $match: { current_stock: { $gt: 0 } } },
-            { $project: { isLow: { $lte: ['$current_stock', '$reorder_level'] } } },
-            { $match: { isLow: true } },
-            { $count: 'count' }
-        ]);
-
-        res.json({
-            totalProducts,
-            lowStockItems: lowStock[0]?.count || 0,
-            outOfStockItems,
-            pendingOrders
+        const lowStockItems = await Product.count({
+            where: {
+                current_stock: { [Op.gt]: 0 },
+                [Op.and]: [sequelize.literal('current_stock <= reorder_level')]
+            }
         });
+
+        const outOfStockItems = await Product.count({
+            where: { current_stock: 0 }
+        });
+
+        // Only count POs that have a vendor assigned (orphaned POs excluded)
+        const pendingOrders = await PurchaseOrder.count({
+            where: { status: 'PENDING', vendor_id: { [Op.ne]: null } }
+        });
+
+        res.json({ totalProducts, lowStockItems, outOfStockItems, pendingOrders });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/analytics/stock-trend
 router.get('/stock-trend', async (req, res) => {
     try {
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-        const rows = await StockTransaction.aggregate([
-            { $match: { timestamp: { $gte: sixMonthsAgo } } },
-            {
-                $group: {
-                    _id: {
-                        month: { $dateToString: { format: '%Y-%m', date: '$timestamp' } },
-                        type: '$type'
-                    },
-                    total: { $sum: '$quantity' }
+        const rows = await StockTransaction.findAll({
+            attributes: [
+                [sequelize.fn('DATE_FORMAT', sequelize.col('timestamp'), '%Y-%m'), 'month'],
+                'type',
+                [sequelize.fn('SUM', sequelize.col('quantity')), 'total']
+            ],
+            where: {
+                timestamp: {
+                    [Op.gte]: new Date(new Date().setMonth(new Date().getMonth() - 6))
                 }
             },
-            {
-                $project: {
-                    _id: 0,
-                    month: '$_id.month',
-                    type: '$_id.type',
-                    total: 1
-                }
-            },
-            { $sort: { month: 1 } }
-        ]);
+            group: [
+                sequelize.fn('DATE_FORMAT', sequelize.col('timestamp'), '%Y-%m'),
+                'type'
+            ],
+            order: [
+                [sequelize.fn('DATE_FORMAT', sequelize.col('timestamp'), '%Y-%m'), 'ASC']
+            ],
+            raw: true
+        });
 
         res.json(rows);
     } catch (err) {
@@ -68,53 +62,49 @@ router.get('/stock-trend', async (req, res) => {
     }
 });
 
-// GET /api/analytics/top-restocked
 router.get('/top-restocked', async (req, res) => {
     try {
-        const rows = await StockTransaction.aggregate([
-            { $match: { type: 'IN' } },
-            { $group: { _id: '$product_id', total_restocked: { $sum: '$quantity' } } },
-            { $sort: { total_restocked: -1 } },
-            { $limit: 10 },
-            {
-                $lookup: {
-                    from: 'products',
-                    localField: '_id',
-                    foreignField: '_id',
-                    as: 'product'
-                }
-            },
-            { $unwind: '$product' },
-            {
-                $project: {
-                    _id: 0,
-                    name: '$product.name',
-                    sku: '$product.sku',
-                    total_restocked: 1
-                }
-            }
-        ]);
+        const rows = await StockTransaction.findAll({
+            attributes: [
+                'product_id',
+                [sequelize.fn('SUM', sequelize.col('StockTransaction.quantity')), 'total_restocked']
+            ],
+            where: { type: 'IN' },
+            include: [{
+                model: Product,
+                as: 'Product',
+                attributes: ['name', 'sku']
+            }],
+            group: ['product_id', 'Product.id'],
+            order: [[sequelize.fn('SUM', sequelize.col('StockTransaction.quantity')), 'DESC']],
+            limit: 10,
+            raw: false
+        });
 
-        res.json(rows);
+        const result = rows.map(r => ({
+            name: r.Product.name,
+            sku: r.Product.sku,
+            total_restocked: Number(r.dataValues.total_restocked)
+        }));
+
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/analytics/category-breakdown
 router.get('/category-breakdown', async (req, res) => {
     try {
-        const rows = await Product.aggregate([
-            {
-                $group: {
-                    _id: '$category',
-                    count: { $sum: 1 },
-                    total_stock: { $sum: '$current_stock' }
-                }
-            },
-            { $project: { _id: 0, category: '$_id', count: 1, total_stock: 1 } },
-            { $sort: { count: -1 } }
-        ]);
+        const rows = await Product.findAll({
+            attributes: [
+                'category',
+                [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+                [sequelize.fn('SUM', sequelize.col('current_stock')), 'total_stock']
+            ],
+            group: ['category'],
+            order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']],
+            raw: true
+        });
 
         res.json(rows);
     } catch (err) {
@@ -122,23 +112,20 @@ router.get('/category-breakdown', async (req, res) => {
     }
 });
 
-// GET /api/analytics/low-stock
 router.get('/low-stock', async (req, res) => {
     try {
         const { limit = 10 } = req.query;
 
-        const products = await Product.aggregate([
-            {
-                $match: {
-                    $or: [
-                        { current_stock: 0 },
-                        { $expr: { $lte: ['$current_stock', '$reorder_level'] } }
-                    ]
-                }
+        const products = await Product.findAll({
+            where: {
+                [Op.or]: [
+                    { current_stock: 0 },
+                    sequelize.literal('current_stock <= reorder_level')
+                ]
             },
-            { $sort: { current_stock: 1 } },
-            { $limit: Number(limit) }
-        ]);
+            order: [['current_stock', 'ASC']],
+            limit: Number(limit)
+        });
 
         res.json(products);
     } catch (err) {
