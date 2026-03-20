@@ -361,7 +361,8 @@ Start services in this order:
 ### Default Login URLs
 - **Manager / Vendor:** http://localhost:4200
 - **Admin:** http://localhost:4201
-
+- ** Admin Login:- Email:admin@smartshelfx.com
+- Password:- Admin@123 
 ---
 
 ## 📖 Usage Guide
