@@ -1,40 +1,49 @@
-const express  = require('express');
-const axios    = require('axios');
-const { ForecastResult, Product, User, Alert, PurchaseOrder } = require('../models');
+const express = require('express');
+const axios = require('axios');
+const { Op } = require('sequelize');
+const { sequelize, ForecastResult, Product, User, Alert, PurchaseOrder } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth.middleware');
 
 const router = express.Router();
+
 router.use(authenticate);
 
-// GET /api/forecast
 router.get('/', async (req, res) => {
     try {
         const { risk_level, product_id } = req.query;
-        const query = {};
-        if (risk_level)  query.risk_level  = risk_level;
-        if (product_id)  query.product_id  = product_id;
 
-        const rows = await ForecastResult.find(query)
-            .populate('product_id', 'name sku category current_stock reorder_level unit_price vendor_id')
-            .sort({ _id: -1 })
-            .limit(200);
+        let sql = `
+      SELECT f.id, f.product_id, f.forecast_date,
+             f.predicted_qty, f.confidence, f.risk_level,
+             p.name AS p_name, p.sku AS p_sku, p.category AS p_cat,
+             p.current_stock, p.reorder_level, p.unit_price, p.vendor_id
+      FROM forecast_results f
+      LEFT JOIN products p ON p.id = f.product_id
+      WHERE 1=1
+    `;
+        const replacements = [];
+        if (risk_level) { sql += ' AND f.risk_level = ?'; replacements.push(risk_level); }
+        if (product_id) { sql += ' AND f.product_id = ?'; replacements.push(Number(product_id)); }
+        sql += ' ORDER BY f.id DESC LIMIT 200';
 
-        const result = rows.map(r => ({
-            id:            r._id,
-            product_id:    r.product_id?._id,
+        const [rows] = await sequelize.query(sql, { replacements });
+
+        const result = (rows || []).map(r => ({
+            id: r.id,
+            product_id: Number(r.product_id),
             forecast_date: r.forecast_date,
-            predicted_qty: r.predicted_qty,
-            confidence:    r.confidence,
-            risk_level:    r.risk_level,
+            predicted_qty: Number(r.predicted_qty) || 0,
+            confidence: Number(r.confidence) || 0,
+            risk_level: r.risk_level || 'LOW',
             Product: {
-                id:            r.product_id?._id,
-                name:          r.product_id?.name || ('Product #' + r.product_id),
-                sku:           r.product_id?.sku || '',
-                category:      r.product_id?.category || '',
-                current_stock: r.product_id?.current_stock || 0,
-                reorder_level: r.product_id?.reorder_level || 0,
-                unit_price:    r.product_id?.unit_price || 0,
-                vendor_id:     r.product_id?.vendor_id || null
+                id: Number(r.product_id),
+                name: r.p_name || ('Product #' + r.product_id),
+                sku: r.p_sku || '',
+                category: r.p_cat || '',
+                current_stock: Number(r.current_stock) || 0,
+                reorder_level: Number(r.reorder_level) || 0,
+                unit_price: Number(r.unit_price) || 0,
+                vendor_id: r.vendor_id || null
             }
         }));
 
@@ -45,65 +54,67 @@ router.get('/', async (req, res) => {
     }
 });
 
-// POST /api/forecast/run
+
 router.post('/run', requireRole('ADMIN', 'MANAGER'), async (req, res) => {
     try {
-        const mlUrl      = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+        const mlUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+
         const mlResponse = await axios.post(`${mlUrl}/forecast`, {}, { timeout: 60000 });
-        const mlData     = mlResponse.data;
+        const mlData = mlResponse.data;
+
+        // ML service already saved to DB — don't duplicate. Just do alerts/POs.
         const savedForecasts = mlData.forecasts || [];
 
         if (Array.isArray(savedForecasts)) {
             for (const item of savedForecasts) {
                 try {
                     if (['HIGH', 'CRITICAL'].includes(item.risk_level)) {
-                        const product = await Product.findById(item.product_id)
-                            .populate('vendor_id', 'id name email');
-
+                        const product = await Product.findByPk(item.product_id, {
+                            include: [{ model: User, as: 'vendor', attributes: ['id', 'name', 'email'] }]
+                        });
                         if (product) {
-                            await Alert.deleteMany({ product_id: product._id, type: 'RESTOCK_SUGGESTED' });
+                            // Delete old RESTOCK alert for this product before creating new one
+                            await Alert.destroy({ where: { product_id: item.product_id, type: 'RESTOCK_SUGGESTED' } });
                             await Alert.create({
-                                product_id: product._id,
-                                vendor_id:  product.vendor_id?._id || null,
-                                type:       'RESTOCK_SUGGESTED',
-                                message:    `AI Forecast: ${product.name} (${product.sku}) — Risk: ${item.risk_level}. Predicted demand: ${Math.ceil(item.predicted_qty)} units in next 7 days. Current stock: ${product.current_stock}.`,
-                                is_read:    false
+                                product_id: item.product_id,
+                                vendor_id: product.vendor_id || null,
+                                type: 'RESTOCK_SUGGESTED',
+                                message: `AI Forecast: ${product.name} (${product.sku}) — Risk: ${item.risk_level}. Predicted demand: ${Math.ceil(item.predicted_qty)} units in next 7 days. Current stock: ${product.current_stock}.`,
+                                is_read: false
                             });
 
-                            if (product.vendor_id) {
+                            // Only auto-create PO if product has a vendor assigned
+                            if (product.vendor_id && product.vendor) {
                                 const existingPO = await PurchaseOrder.findOne({
-                                    product_id: product._id,
-                                    status: { $in: ['PENDING', 'APPROVED'] }
+                                    where: { product_id: item.product_id, status: ['PENDING', 'APPROVED'] }
                                 });
-
                                 if (!existingPO) {
-                                    const reorderQty = Math.max(
-                                        (product.reorder_level || 10) * 2,
-                                        Math.ceil(item.predicted_qty)
-                                    );
+                                    const reorderQty = Math.max((product.reorder_level || 10) * 2, Math.ceil(item.predicted_qty));
                                     const newPO = await PurchaseOrder.create({
-                                        product_id: product._id,
-                                        vendor_id:  product.vendor_id._id,
-                                        quantity:   reorderQty,
-                                        status:     'PENDING',
-                                        notes:      `Auto-generated by AI forecast. Risk: ${item.risk_level}. Predicted demand: ${Math.ceil(item.predicted_qty)} units.`
+                                        product_id: item.product_id,
+                                        vendor_id: product.vendor_id,
+                                        quantity: reorderQty,
+                                        status: 'PENDING',
+                                        notes: `Auto-generated by AI forecast. Risk: ${item.risk_level}. Predicted demand: ${Math.ceil(item.predicted_qty)} units.`
                                     });
-
+                                    // Email the vendor about this new PO
                                     try {
                                         const { sendPurchaseOrderEmail } = require('../utils/mailer');
                                         await sendPurchaseOrderEmail({
-                                            vendorEmail: product.vendor_id.email,
-                                            vendorName:  product.vendor_id.name,
+                                            vendorEmail: product.vendor.email,
+                                            vendorName: product.vendor.name,
                                             productName: product.name,
-                                            productSku:  product.sku,
-                                            quantity:    reorderQty,
-                                            orderId:     newPO._id,
-                                            notes:       `Auto-generated by AI forecast. Risk: ${item.risk_level}.`
+                                            productSku: product.sku,
+                                            quantity: reorderQty,
+                                            orderId: newPO.id,
+                                            notes: `Auto-generated by AI forecast. Risk: ${item.risk_level}.`
                                         });
                                     } catch (mailErr) {
-                                        console.error(`Email failed for PO ${newPO._id}:`, mailErr.message);
+                                        console.error(`Email failed for PO ${newPO.id}:`, mailErr.message);
                                     }
                                 }
+                            } else {
+                                console.log(`[Forecast] Product ${product.id} (${product.name}) has no vendor assigned — skipping PO creation.`);
                             }
                         }
                     }
@@ -114,11 +125,11 @@ router.post('/run', requireRole('ADMIN', 'MANAGER'), async (req, res) => {
         }
 
         res.json({
-            success:    true,
-            message:    `Forecast completed. ${savedForecasts.length} products updated.`,
-            forecasts:  savedForecasts,
-            accuracy:   mlData.model_accuracy || null,
-            ran_at:     mlData.trained_at || new Date().toISOString()
+            success: true,
+            message: `Forecast completed. ${savedForecasts.length} products updated.`,
+            forecasts: savedForecasts,
+            accuracy: mlData.model_accuracy || null,
+            ran_at: mlData.trained_at || new Date().toISOString()
         });
     } catch (err) {
         if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
@@ -128,16 +139,21 @@ router.post('/run', requireRole('ADMIN', 'MANAGER'), async (req, res) => {
     }
 });
 
-// GET /api/forecast/:product_id
 router.get('/:product_id', async (req, res) => {
     try {
-        const product = await Product.findById(req.params.product_id);
+        const product = await Product.findByPk(req.params.product_id);
         if (!product) return res.status(404).json({ error: 'Product not found' });
 
-        const forecasts = await ForecastResult.find({ product_id: req.params.product_id })
-            .populate('product_id', 'id name sku current_stock reorder_level')
-            .sort({ forecast_date: 1 })
-            .limit(30);
+        const forecasts = await ForecastResult.findAll({
+            where: { product_id: req.params.product_id },
+            include: [{
+                model: Product,
+                as: 'Product',
+                attributes: ['id', 'name', 'sku', 'current_stock', 'reorder_level']
+            }],
+            order: [['forecast_date', 'ASC']],
+            limit: 30
+        });
 
         res.json(forecasts);
     } catch (err) {
@@ -145,28 +161,30 @@ router.get('/:product_id', async (req, res) => {
     }
 });
 
-// POST /api/forecast/trigger-alerts
-router.post('/trigger-alerts', requireRole('ADMIN', 'MANAGER'), async (req, res) => {
+
+// POST /forecast/trigger-alerts — re-create alerts for all HIGH/CRITICAL forecasts
+router.post('/trigger-alerts', authenticate, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
     try {
-        const forecasts = await ForecastResult.find({ risk_level: { $in: ['HIGH', 'CRITICAL'] } })
-            .populate({ path: 'product_id', populate: { path: 'vendor_id', select: 'id name email' } });
+        const forecasts = await ForecastResult.findAll({
+            where: { risk_level: ['HIGH', 'CRITICAL'] },
+            include: [{ model: Product, as: 'Product', include: [{ model: User, as: 'vendor', attributes: ['id', 'name', 'email'] }] }]
+        });
 
         let created = 0;
         for (const f of forecasts) {
-            const product = f.product_id;
+            const product = f.Product;
             if (!product) continue;
-
-            await Alert.deleteMany({ product_id: product._id, type: 'RESTOCK_SUGGESTED' });
+            // Remove old RESTOCK alert for this product
+            await Alert.destroy({ where: { product_id: product.id, type: 'RESTOCK_SUGGESTED' } });
             await Alert.create({
-                product_id: product._id,
-                vendor_id:  product.vendor_id?._id || null,
-                type:       'RESTOCK_SUGGESTED',
-                message:    `AI Forecast: ${product.name} (${product.sku}) — Risk: ${f.risk_level}. Predicted demand: ${Math.ceil(f.predicted_qty)} units in next 7 days. Current stock: ${product.current_stock}.`,
-                is_read:    false
+                product_id: product.id,
+                vendor_id: product.vendor_id || null,
+                type: 'RESTOCK_SUGGESTED',
+                message: `AI Forecast: ${product.name} (${product.sku}) — Risk: ${f.risk_level}. Predicted demand: ${Math.ceil(f.predicted_qty)} units in next 7 days. Current stock: ${product.current_stock}.`,
+                is_read: false
             });
             created++;
         }
-
         res.json({ success: true, alerts_created: created });
     } catch (err) {
         res.status(500).json({ error: err.message });
