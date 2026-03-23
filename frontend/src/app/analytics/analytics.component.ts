@@ -48,7 +48,11 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
 
     ngOnInit() { this.loadAll(); }
     ngAfterViewInit() { this.chartsReady = true; this.tryBuildCharts(); }
-    ngOnDestroy() { this.trendChart?.destroy(); this.categoryChart?.destroy(); this.poChart?.destroy(); }
+    ngOnDestroy() {
+        this.trendChart?.destroy();
+        this.categoryChart?.destroy();
+        this.poChart?.destroy();
+    }
 
     loadAll() {
         this.loading = true;
@@ -79,9 +83,9 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
             next: res => {
                 const orders = res.data || [];
                 this.poStatusData = {
-                    pending: orders.filter((o: any) => o.status === 'PENDING').length,
-                    approved: orders.filter((o: any) => o.status === 'APPROVED').length,
-                    dispatched: orders.filter((o: any) => o.status === 'DISPATCHED').length,
+                    pending:   orders.filter((o: any) => o.status === 'PENDING').length,
+                    approved:  orders.filter((o: any) => o.status === 'APPROVED').length,
+                    dispatched:orders.filter((o: any) => o.status === 'DISPATCHED').length,
                     delivered: orders.filter((o: any) => o.status === 'DELIVERED').length,
                     cancelled: orders.filter((o: any) => o.status === 'CANCELLED').length
                 };
@@ -94,10 +98,10 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
     loadMovement() {
         this.movementLoading = true;
         this.api.getStockMovement(this.movementPeriod).subscribe({
-            next: (rows: any[]) => {
-                this.trendLabels = rows.map((r: any) => r.label);
-                this.trendIn = rows.map((r: any) => r.purchases);
-                this.trendOut = rows.map((r: any) => r.sales);
+            next: (rows: { label: string; purchases: number; sales: number }[]) => {
+                this.trendLabels = rows.map(r => r.label);
+                this.trendIn     = rows.map(r => r.purchases);
+                this.trendOut    = rows.map(r => r.sales);
                 this.movementLoading = false;
                 if (this.chartsReady) setTimeout(() => this.buildTrendChart(), 80);
             },
@@ -117,9 +121,12 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     buildTrendChart() {
-        if (!this.stockTrendCanvas?.nativeElement) return;
+        const canvas = this.stockTrendCanvas?.nativeElement;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
         this.trendChart?.destroy();
-        this.trendChart = new Chart(this.stockTrendCanvas.nativeElement.getContext('2d')!, {
+        this.trendChart = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: this.trendLabels.length ? this.trendLabels : ['No data'],
@@ -153,15 +160,18 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     buildCategoryChart() {
-        if (!this.categoryCanvas?.nativeElement || !this.categories.length) return;
+        const canvas = this.categoryCanvas?.nativeElement;
+        if (!canvas || !this.categories.length) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
         this.categoryChart?.destroy();
-        this.categoryChart = new Chart(this.categoryCanvas.nativeElement.getContext('2d')!, {
+        this.categoryChart = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: this.categories.map(c => c.category),
                 datasets: [{
                     data: this.categories.map(c => Number(c.total_stock)),
-                    backgroundColor: ['#00b4ff', '#00ffcc', '#ffaa00', '#ff4d6d', '#a855f7', '#22c55e', '#f97316'],
+                    backgroundColor: ['#00b4ff','#00ffcc','#ffaa00','#ff4d6d','#a855f7','#22c55e','#f97316'],
                     borderWidth: 0
                 }]
             },
@@ -169,26 +179,34 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,0.5)', font: { size: 12 }, padding: 12, boxWidth: 12 } }
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: 'rgba(255,255,255,0.5)', font: { size: 12 }, padding: 12, boxWidth: 12 }
+                    }
                 }
             }
         });
     }
 
     buildPOChart() {
-        if (!this.poStatusCanvas?.nativeElement) return;
+        const canvas = this.poStatusCanvas?.nativeElement;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
         this.poChart?.destroy();
-        this.poChart = new Chart(this.poStatusCanvas.nativeElement.getContext('2d')!, {
+        this.poChart = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: ['Pending', 'Approved', 'Dispatched', 'Delivered', 'Cancelled'],
                 datasets: [{
                     data: [
-                        this.poStatusData.pending, this.poStatusData.approved,
-                        this.poStatusData.dispatched, this.poStatusData.delivered,
+                        this.poStatusData.pending,
+                        this.poStatusData.approved,
+                        this.poStatusData.dispatched,
+                        this.poStatusData.delivered,
                         this.poStatusData.cancelled
                     ],
-                    backgroundColor: ['#ffaa00', '#00b4ff', '#a855f7', '#00ffcc', '#ff4d6d'],
+                    backgroundColor: ['#ffaa00','#00b4ff','#a855f7','#00ffcc','#ff4d6d'],
                     borderWidth: 0
                 }]
             },
@@ -196,7 +214,10 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,0.5)', font: { size: 12 }, padding: 12, boxWidth: 12 } }
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: 'rgba(255,255,255,0.5)', font: { size: 12 }, padding: 12, boxWidth: 12 }
+                    }
                 }
             }
         });
@@ -212,20 +233,6 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
         if (p.current_stock <= p.reorder_level * 0.5) return 'badge-crit';
         if (p.current_stock <= p.reorder_level) return 'badge-low';
         return 'badge-ok';
-<<<<<<< HEAD
-    }
-
-    statusLabel(p: any): string {
-        if (p.current_stock === 0) return 'Out of Stock';
-        if (p.current_stock <= p.reorder_level * 0.5) return 'Critical';
-        if (p.current_stock <= p.reorder_level) return 'Low Stock';
-        return 'In Stock';
-    }
-
-    get totalStock(): number {
-        return this.categories.reduce((s, c) => s + Number(c.total_stock), 0);
-=======
->>>>>>> 69d2af080cc7179ddf6ab6a06f250101ff3e2e9f
     }
 
     statusLabel(p: any): string {
