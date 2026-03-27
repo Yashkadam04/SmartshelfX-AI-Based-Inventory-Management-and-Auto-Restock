@@ -1,5 +1,4 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const { StockTransaction, Product, User } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth.middleware');
 const { checkAndCreatePO } = require('../utils/alertHelper');
@@ -40,33 +39,25 @@ router.get('/', async (req, res) => {
 
 // POST /api/transactions
 router.post('/', requireRole('ADMIN', 'MANAGER'), async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
         const { product_id, quantity, type, notes, timestamp } = req.body;
 
         if (!product_id || !quantity || !type) {
-            await session.abortTransaction();
             return res.status(400).json({ error: 'product_id, quantity and type are required' });
         }
         if (!['IN', 'OUT'].includes(type)) {
-            await session.abortTransaction();
             return res.status(400).json({ error: 'type must be IN or OUT' });
         }
         if (Number(quantity) <= 0) {
-            await session.abortTransaction();
             return res.status(400).json({ error: 'quantity must be greater than 0' });
         }
 
-        const product = await Product.findById(product_id).session(session);
+        const product = await Product.findById(product_id);
         if (!product) {
-            await session.abortTransaction();
             return res.status(404).json({ error: 'Product not found' });
         }
 
         if (type === 'OUT' && product.current_stock < Number(quantity)) {
-            await session.abortTransaction();
             return res.status(400).json({
                 error: 'Insufficient stock',
                 available: product.current_stock,
@@ -78,30 +69,27 @@ router.post('/', requireRole('ADMIN', 'MANAGER'), async (req, res) => {
             ? product.current_stock + Number(quantity)
             : product.current_stock - Number(quantity);
 
-        product.current_stock = newStock;
-        await product.save({ session });
+        // Update stock directly
+        await Product.findByIdAndUpdate(product_id, { current_stock: newStock });
 
-        const tx = await StockTransaction.create([{
+        // Create transaction record
+        const tx = await StockTransaction.create({
             product_id,
             quantity: Number(quantity),
             type,
             handled_by: req.user._id,
             timestamp: timestamp ? new Date(timestamp) : new Date(),
             notes: notes || null
-        }], { session });
-
-        await session.commitTransaction();
-        session.endSession();
+        });
 
         // Auto-create alert + PO if stock drops to/below reorder level
         if (type === 'OUT' && newStock <= product.reorder_level) {
+            product.current_stock = newStock;
             await checkAndCreatePO(product);
         }
 
-        res.status(201).json({ transaction: tx[0], updatedStock: newStock });
+        res.status(201).json({ transaction: tx, updatedStock: newStock });
     } catch (err) {
-        await session.abortTransaction();
-        session.endSession();
         res.status(500).json({ error: err.message });
     }
 });
