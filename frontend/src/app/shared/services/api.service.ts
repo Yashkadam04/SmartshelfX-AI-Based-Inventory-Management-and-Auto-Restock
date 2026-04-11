@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
     Product, ProductListResponse, ProductFilterParams,
@@ -121,8 +122,30 @@ export class ApiService {
     getCategoryBreakdown(): Observable<CategoryBreakdown[]> {
         return this.http.get<CategoryBreakdown[]>(`${this.API}/analytics/category-breakdown`);
     }
-    getStockMovement(period: 'day' | 'month' | 'year'): Observable<any[]> {
-        return this.http.get<any[]>(`${this.API}/analytics/stock-movement`, { params: this.params({ period }) });
+
+    getValuation(): Observable<any> {
+        return this.http.get<any>(`${this.API}/analytics/valuation`);
+    }
+
+    // ─── Stock Movement (used by Analytics component) ──────────────
+    // Transforms /analytics/stock-trend data into { label, purchases, sales } format
+    // period: 'day' | 'month' | 'year' — currently uses the 6-month trend from backend
+    getStockMovement(period: 'day' | 'month' | 'year' = 'month'): Observable<{ label: string; purchases: number; sales: number }[]> {
+        return this.http.get<any[]>(`${this.API}/analytics/stock-trend`).pipe(
+            map((rows: any[]) => {
+                // Group rows by month label and split IN/OUT into purchases/sales
+                const map: Record<string, { label: string; purchases: number; sales: number }> = {};
+
+                rows.forEach(r => {
+                    const label = r.month || r.label || 'Unknown';
+                    if (!map[label]) map[label] = { label, purchases: 0, sales: 0 };
+                    if (r.type === 'IN')  map[label].purchases += Number(r.total) || 0;
+                    if (r.type === 'OUT') map[label].sales     += Number(r.total) || 0;
+                });
+
+                return Object.values(map).sort((a, b) => a.label.localeCompare(b.label));
+            })
+        );
     }
 
     getUsers(): Observable<any[]> {

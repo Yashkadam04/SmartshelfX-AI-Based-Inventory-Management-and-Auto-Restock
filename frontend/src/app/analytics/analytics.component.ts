@@ -28,6 +28,18 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
     movementLoading = false;
     movementPeriod: 'day' | 'month' | 'year' = 'month';
 
+    // Valuation data
+    valuation: any = {
+        total_inventory_value: 0,
+        total_units: 0,
+        total_products: 0,
+        at_risk_value: 0,
+        at_risk_products: 0,
+        dead_stock_count: 0,
+        category_valuation: [],
+        top_valuable_products: []
+    };
+
     // Template aliases
     get selectedPeriod() { return this.movementPeriod; }
     set selectedPeriod(v: 'day' | 'month' | 'year') { this.movementPeriod = v; }
@@ -77,6 +89,11 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
         this.api.getProducts({ status: 'low', limit: 10 }).subscribe({
             next: res => { this.lowStockProducts = res.data; this.loading = false; this.cdr.detectChanges(); },
             error: () => { this.loading = false; }
+        });
+
+        this.api.getValuation().subscribe({
+            next: v => { this.valuation = v; this.cdr.detectChanges(); },
+            error: () => { }
         });
 
         this.api.getOrders({ limit: 200 }).subscribe({
@@ -244,5 +261,17 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
 
     get totalStock(): number {
         return this.categories.reduce((s, c) => s + Number(c.total_stock), 0);
+    }
+
+    formatCurrency(value: number): string {
+        if (value >= 10000000) return '₹' + (value / 10000000).toFixed(2) + ' Cr';
+        if (value >= 100000)   return '₹' + (value / 100000).toFixed(2) + ' L';
+        if (value >= 1000)     return '₹' + (value / 1000).toFixed(1) + 'K';
+        return '₹' + value.toFixed(0);
+    }
+
+    getValuationBarWidth(value: number): string {
+        const max = Math.max(...(this.valuation.category_valuation || []).map((c: any) => c.category_value), 1);
+        return `${Math.round((value / max) * 100)}%`;
     }
 }
