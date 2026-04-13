@@ -27,17 +27,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── MongoDB Connection ────────────────────────────────────────────────
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/smartshelfx")
+# ── MongoDB Connection ─────────────────────────────────────────────────
+MONGO_URI            = os.getenv("MONGO_URI", "mongodb://localhost:27017/smartshelfx")
 FORECAST_DAYS        = int(os.getenv("FORECAST_DAYS",        7))
 MIN_TRAINING_RECORDS = int(os.getenv("MIN_TRAINING_RECORDS", 5))
 
+# Mongoose pluralizes + lowercases model names:
+# Product         → products
+# StockTransaction → stocktransactions
+# ForecastResult  → forecastresults
+
+_mongo_client = None
+
 def get_db():
-    client = MongoClient(MONGO_URI)
-    return client["smartshelfx"]
+    global _mongo_client
+    if _mongo_client is None:
+        _mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    return _mongo_client["smartshelfx"]
 
 
-# ── Pydantic Models ───────────────────────────────────────────────────
+# ── Pydantic Models ────────────────────────────────────────────────────
 
 class ForecastItem(BaseModel):
     product_id:    str
@@ -66,7 +75,7 @@ class ProductForecastResponse(BaseModel):
     model_accuracy: Optional[float]
 
 
-# ── Database Helpers ──────────────────────────────────────────────────
+# ── Database Helpers ───────────────────────────────────────────────────
 
 def get_all_products() -> List[Dict[str, Any]]:
     db       = get_db()
@@ -88,61 +97,73 @@ def get_all_products() -> List[Dict[str, Any]]:
 
 
 def get_transactions(product_id: str) -> pd.DataFrame:
-    db          = get_db()
-    since       = datetime.now() - timedelta(days=90)
-    pipeline    = [
-        {
-            "$match": {
-                "product_id": ObjectId(product_id),
-                "timestamp":  {"$gte": since}
-            }
-        },
-        {
-            "$group": {
-                "_id": {
-                    "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
-                    "type": "$type"
-                },
-                "daily_qty": {"$sum": "$quantity"}
-            }
-        },
-        {
-            "$project": {
-                "_id":       0,
-                "tx_date":   "$_id.date",
-                "type":      "$_id.type",
-                "daily_qty": 1
-            }
-        },
-        {"$sort": {"tx_date": 1}}
-    ]
-    rows = list(db["stocktransactions"].aggregate(pipeline))
-    if not rows:
-        return pd.DataFrame(columns=["tx_date", "type", "daily_qty"])
+    db    = get_db()
+    since = datetime.now() - timedelta(days=90)
 
-    df              = pd.DataFrame(rows)
-    df["tx_date"]   = pd.to_datetime(df["tx_date"])
-    df["daily_qty"] = df["daily_qty"].astype(float)
-    return df
+    # Try both collection name variants
+    for col_name in ["stocktransactions", "stock_transactions"]:
+        try:
+            pipeline = [
+                {
+                    "$match": {
+                        "product_id": ObjectId(product_id),
+                        "timestamp":  {"$gte": since}
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": {
+                            "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
+                            "type": "$type"
+                        },
+                        "daily_qty": {"$sum": "$quantity"}
+                    }
+                },
+                {
+                    "$project": {
+                        "_id":       0,
+                        "tx_date":   "$_id.date",
+                        "type":      "$_id.type",
+                        "daily_qty": 1
+                    }
+                },
+                {"$sort": {"tx_date": 1}}
+            ]
+            rows = list(db[col_name].aggregate(pipeline))
+            if rows:
+                df              = pd.DataFrame(rows)
+                df["tx_date"]   = pd.to_datetime(df["tx_date"])
+                df["daily_qty"] = df["daily_qty"].astype(float)
+                return df
+        except Exception:
+            continue
+
+    return pd.DataFrame(columns=["tx_date", "type", "daily_qty"])
 
 
 def save_forecast(f: Dict[str, Any]):
     db = get_db()
-    db["forecastresults"].update_one(
-        {"product_id": ObjectId(f["product_id"])},
-        {"$set": {
-            "product_id":    ObjectId(f["product_id"]),
-            "forecast_date": datetime.strptime(f["forecast_date"], "%Y-%m-%d"),
-            "predicted_qty": f["predicted_qty"],
-            "confidence":    f["confidence"],
-            "risk_level":    f["risk_level"],
-            "createdAt":     datetime.utcnow()
-        }},
-        upsert=True
-    )
+    # Try both collection name variants
+    for col_name in ["forecastresults", "forecast_results"]:
+        try:
+            db[col_name].update_one(
+                {"product_id": ObjectId(f["product_id"])},
+                {"$set": {
+                    "product_id":    ObjectId(f["product_id"]),
+                    "forecast_date": datetime.strptime(f["forecast_date"], "%Y-%m-%d"),
+                    "predicted_qty": f["predicted_qty"],
+                    "confidence":    f["confidence"],
+                    "risk_level":    f["risk_level"],
+                    "createdAt":     datetime.utcnow()
+                }},
+                upsert=True
+            )
+            return
+        except Exception:
+            continue
 
 
-# ── ML Logic ──────────────────────────────────────────────────────────
+# ── ML Logic ───────────────────────────────────────────────────────────
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -177,8 +198,8 @@ def forecast_product(product: Dict[str, Any]) -> Dict[str, Any]:
     stock   = int(product["current_stock"])
     reorder = int(product["reorder_level"])
 
-    df      = get_transactions(pid)
-    out_df  = df[df["type"] == "OUT"].copy()
+    df     = get_transactions(pid)
+    out_df = df[df["type"] == "OUT"].copy()
 
     target_date = (datetime.now() + timedelta(days=FORECAST_DAYS)).date()
 
@@ -194,24 +215,20 @@ def forecast_product(product: Dict[str, Any]) -> Dict[str, Any]:
             "risk_level":    risk_level(stock, reorder, predicted)
         }
 
-    out_df  = build_features(out_df)
-    X       = out_df[FEATURES].values
-    y       = out_df["daily_qty"].values
+    out_df = build_features(out_df)
+    X      = out_df[FEATURES].values
+    y      = out_df["daily_qty"].values
 
-    split       = max(1, int(len(X) * 0.8))
-    X_tr, X_va  = X[:split], X[split:]
-    y_tr, y_va  = y[:split], y[split:]
+    split      = max(1, int(len(X) * 0.8))
+    X_tr, X_va = X[:split], X[split:]
+    y_tr, y_va = y[:split], y[split:]
 
-    scaler      = StandardScaler()
-    X_tr_sc     = scaler.fit_transform(X_tr)
-    model       = XGBRegressor(
-        n_estimators=100,
-        max_depth=4,
-        learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        random_state=42,
-        verbosity=0
+    scaler   = StandardScaler()
+    X_tr_sc  = scaler.fit_transform(X_tr)
+    model    = XGBRegressor(
+        n_estimators=100, max_depth=4,
+        learning_rate=0.1, subsample=0.8,
+        colsample_bytree=0.8, random_state=42, verbosity=0
     )
     model.fit(X_tr_sc, y_tr)
 
@@ -243,17 +260,20 @@ def forecast_product(product: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-# ── Routes ────────────────────────────────────────────────────────────
+# ── Routes ─────────────────────────────────────────────────────────────
 
 @app.get("/")
 def health_check():
     try:
         db    = get_db()
         count = db["products"].count_documents({})
+        # Also check collection names
+        cols  = db.list_collection_names()
         return {
-            "status":   "ok",
-            "service":  "SmartShelfX ML",
-            "database": f"MongoDB connected ({count} products)"
+            "status":      "ok",
+            "service":     "SmartShelfX ML",
+            "database":    f"MongoDB connected ({count} products)",
+            "collections": cols
         }
     except Exception as e:
         return {"status": "error", "database": str(e)}
@@ -339,29 +359,37 @@ def demand_summary():
         since_30 = datetime.now() - timedelta(days=30)
         result   = []
 
+        tx_col = "stocktransactions"
+        if "stock_transactions" in db.list_collection_names():
+            tx_col = "stock_transactions"
+
         for p in products:
             pid      = p["id"]
             pipeline = [
                 {"$match": {"product_id": ObjectId(pid), "timestamp": {"$gte": since_30}}},
                 {"$group": {
-                    "_id": "$type",
+                    "_id":   "$type",
                     "total": {"$sum": "$quantity"},
                     "avg":   {"$avg": "$quantity"}
                 }}
             ]
-            tx_data = {r["_id"]: r for r in db["stocktransactions"].aggregate(pipeline)}
+            tx_data = {r["_id"]: r for r in db[tx_col].aggregate(pipeline)}
             result.append({
-                "id":              pid,
-                "name":            p["name"],
-                "sku":             p["sku"],
-                "current_stock":   p["current_stock"],
-                "reorder_level":   p["reorder_level"],
-                "total_out_30d":   tx_data.get("OUT", {}).get("total", 0),
-                "total_in_30d":    tx_data.get("IN",  {}).get("total", 0),
-                "avg_daily_demand":round(tx_data.get("OUT", {}).get("avg", 0), 2)
+                "id":               pid,
+                "name":             p["name"],
+                "sku":              p["sku"],
+                "current_stock":    p["current_stock"],
+                "reorder_level":    p["reorder_level"],
+                "total_out_30d":    tx_data.get("OUT", {}).get("total", 0),
+                "total_in_30d":     tx_data.get("IN",  {}).get("total", 0),
+                "avg_daily_demand": round(tx_data.get("OUT", {}).get("avg", 0), 2)
             })
 
         result.sort(key=lambda x: x["total_out_30d"], reverse=True)
+
+        fc_col = "forecastresults"
+        if "forecast_results" in db.list_collection_names():
+            fc_col = "forecast_results"
 
         risk_pipeline = [
             {"$sort":  {"createdAt": -1}},
@@ -369,7 +397,7 @@ def demand_summary():
             {"$group": {"_id": "$risk_level", "count": {"$sum": 1}}}
         ]
         risk_dist = [{"risk_level": r["_id"], "count": r["count"]}
-                     for r in db["forecastresults"].aggregate(risk_pipeline)]
+                     for r in db[fc_col].aggregate(risk_pipeline)]
 
         return {
             "products":          result,
@@ -389,25 +417,29 @@ def stock_velocity():
         since_7  = datetime.now() - timedelta(days=7)
         result   = []
 
+        tx_col = "stocktransactions"
+        if "stock_transactions" in db.list_collection_names():
+            tx_col = "stock_transactions"
+
         for p in products:
             pid      = p["id"]
             pipeline = [
                 {"$match": {"product_id": ObjectId(pid), "type": "OUT", "timestamp": {"$gte": since_7}}},
                 {"$group": {"_id": None, "total": {"$sum": "$quantity"}}}
             ]
-            tx       = list(db["stocktransactions"].aggregate(pipeline))
+            tx       = list(db[tx_col].aggregate(pipeline))
             sold_7d  = tx[0]["total"] if tx else 0
             velocity = round(sold_7d / 7.0, 2)
             days_rem = round(p["current_stock"] / velocity, 1) if velocity > 0 else 999
 
             result.append({
-                "id":                    pid,
-                "name":                  p["name"],
-                "sku":                   p["sku"],
-                "category":              p["category"],
-                "current_stock":         p["current_stock"],
-                "units_sold_7d":         sold_7d,
-                "daily_velocity":        velocity,
+                "id":                      pid,
+                "name":                    p["name"],
+                "sku":                     p["sku"],
+                "category":                p["category"],
+                "current_stock":           p["current_stock"],
+                "units_sold_7d":           sold_7d,
+                "daily_velocity":          velocity,
                 "days_of_stock_remaining": days_rem
             })
 
