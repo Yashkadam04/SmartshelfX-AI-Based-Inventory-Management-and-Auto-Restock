@@ -51,14 +51,14 @@ export class InventoryComponent implements OnInit {
 
     buildForm(product?: Product) {
         this.form = this.fb.group({
-            name: [product?.name || '', Validators.required],
-            sku: [product?.sku || '', Validators.required],
-            category: [product?.category || '', Validators.required],
-            vendor_id: [product?.vendor_id || null],
-            current_stock: [product?.current_stock ?? 0, [Validators.required, Validators.min(0)]],
-            reorder_level: [product?.reorder_level ?? 10, [Validators.required, Validators.min(1)]],
-            unit_price: [product?.unit_price ?? 0, Validators.min(0)],
-            expiry_date: [product?.expiry_date || '']
+            name:          [product?.name || '',              Validators.required],
+            sku:           [product?.sku || '',               Validators.required],
+            category:      [product?.category || '',          Validators.required],
+            vendor_id:     [product?.vendor_id || null],
+            current_stock: [product?.current_stock ?? 0,      [Validators.required, Validators.min(0)]],
+            reorder_level: [product?.reorder_level ?? 10,     [Validators.required, Validators.min(1)]],
+            unit_price:    [product?.unit_price ?? 0,         Validators.min(0)],
+            expiry_date:   [product?.expiry_date || '']
         });
     }
 
@@ -79,10 +79,12 @@ export class InventoryComponent implements OnInit {
         });
     }
 
-    getVendorName(id: number | null): string {
+    // ✅ FIXED: handles both MongoDB _id and legacy id
+    getVendorName(id: any): string {
         if (!id) return '—';
-        const v = this.vendors.find(v => v.id === id);
-        return v ? v.name : `V-${id}`;
+        const idStr = String(id);
+        const v = this.vendors.find(v => String((v as any)._id || v.id) === idStr);
+        return v ? v.name : `Vendor`;
     }
 
     loadProducts() {
@@ -115,11 +117,16 @@ export class InventoryComponent implements OnInit {
         if (this.form.invalid) { this.form.markAllAsTouched(); return; }
 
         const data = { ...this.form.value };
-        if (!data.vendor_id) data.vendor_id = null;
+        if (!data.vendor_id || data.vendor_id === 'null' || data.vendor_id === 'undefined') {
+            data.vendor_id = null;
+        }
         if (!data.expiry_date) data.expiry_date = null;
 
+        // ✅ FIXED: use _id for MongoDB
+        const productId = (this.editing as any)?._id || this.editing?.id;
+
         const req = this.editing
-            ? this.api.updateProduct(this.editing.id, data)
+            ? this.api.updateProduct(productId, data)
             : this.api.createProduct(data);
 
         req.subscribe({
@@ -132,10 +139,17 @@ export class InventoryComponent implements OnInit {
         });
     }
 
+    // ✅ FIXED: delete now uses _id for MongoDB
     deleteProduct(p: Product) {
         if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
-        this.api.deleteProduct(p.id).subscribe({
-            next: () => { this.notify.success('Product deleted'); this.loadProducts(); },
+
+        const productId = (p as any)._id || p.id;
+
+        this.api.deleteProduct(productId).subscribe({
+            next: () => {
+                this.notify.success('Product deleted');
+                this.loadProducts();
+            },
             error: err => this.notify.error(err.error?.error || 'Delete failed')
         });
     }
@@ -194,9 +208,9 @@ export class InventoryComponent implements OnInit {
         URL.revokeObjectURL(url);
     }
 
-    onSearch() { this.page = 1; this.loadProducts(); }
-    prevPage() { if (this.page > 1) { this.page--; this.loadProducts(); } }
-    nextPage() { if (this.page * this.limit < this.total) { this.page++; this.loadProducts(); } }
+    onSearch()  { this.page = 1; this.loadProducts(); }
+    prevPage()  { if (this.page > 1) { this.page--; this.loadProducts(); } }
+    nextPage()  { if (this.page * this.limit < this.total) { this.page++; this.loadProducts(); } }
     get totalPages() { return Math.max(1, Math.ceil(this.total / this.limit)); }
 
     statusClass(p: Product): string {
