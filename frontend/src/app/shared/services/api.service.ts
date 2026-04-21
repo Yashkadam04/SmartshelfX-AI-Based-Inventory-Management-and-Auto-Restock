@@ -15,7 +15,6 @@ import {
 @Injectable({ providedIn: 'root' })
 export class ApiService {
     private readonly API = environment.apiUrl;
-
     constructor(private http: HttpClient) { }
 
     private params(obj: Record<string, any>): HttpParams {
@@ -63,6 +62,9 @@ export class ApiService {
     getTopRestocked(): Observable<TopRestockedItem[]> { return this.http.get<TopRestockedItem[]>(`${this.API}/analytics/top-restocked`); }
     getCategoryBreakdown(): Observable<CategoryBreakdown[]> { return this.http.get<CategoryBreakdown[]>(`${this.API}/analytics/category-breakdown`); }
     getLowStockAlerts(): Observable<any[]> { return this.http.get<any[]>(`${this.API}/analytics/low-stock`); }
+    getValuation(): Observable<any> { return this.http.get<any>(`${this.API}/analytics/valuation`); }
+    getReorderSuggestions(): Observable<any> { return this.http.get<any>(`${this.API}/analytics/reorder-suggestions`); }
+    getVendorPerformance(): Observable<any> { return this.http.get<any>(`${this.API}/analytics/vendor-performance`); }
 
     // Stock Movement
     getStockMovement(period: 'day' | 'month' | 'year' = 'month'): Observable<{ label: string; purchases: number; sales: number }[]> {

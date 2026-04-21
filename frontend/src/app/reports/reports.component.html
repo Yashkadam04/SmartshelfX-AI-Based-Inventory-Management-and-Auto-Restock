@@ -1,0 +1,354 @@
+<div class="reports animate-fade">
+
+    <div class="page-header">
+        <div class="page-title">Reports & <span>Analytics</span></div>
+        <p class="page-sub">Reorder suggestions, inventory valuation and vendor performance</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-bar">
+        <button class="tab" [class.active]="activeTab==='reorder'" (click)="switchTab('reorder')">
+            🔄 Auto-Reorder Suggestions
+        </button>
+        <button class="tab" [class.active]="activeTab==='valuation'" (click)="switchTab('valuation')">
+            💰 Inventory Valuation
+        </button>
+        <button class="tab" [class.active]="activeTab==='vendor'" (click)="switchTab('vendor')">
+            ⭐ Vendor Performance
+        </button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB 1 — AUTO REORDER SUGGESTIONS                          -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab==='reorder'" class="animate-fade">
+
+        <div class="report-toolbar">
+            <div class="report-info" *ngIf="reorderData">
+                <span class="info-chip">📦 {{ reorderData.total }} products need reordering</span>
+                <span class="info-chip">⏱ Lead time: {{ reorderData.lead_time }} days</span>
+            </div>
+            <div class="spacer"></div>
+            <button class="btn btn-ghost btn-sm" (click)="loadReorder()">⟳ Refresh</button>
+            <button class="btn btn-success btn-sm" (click)="exportReorderCSV()">📥 Export CSV</button>
+        </div>
+
+        <div class="loading-row" *ngIf="reorderLoading">⟳ Calculating reorder suggestions...</div>
+
+        <div *ngIf="!reorderLoading && reorderData">
+
+            <!-- Summary Cards -->
+            <div class="mini-kpi-row">
+                <div class="mini-kpi red">
+                    <div class="mini-kpi-val">{{ reorderData.suggestions | filterUrgency:'CRITICAL' }}</div>
+                    <div class="mini-kpi-lbl">🔴 Critical</div>
+                </div>
+                <div class="mini-kpi orange">
+                    <div class="mini-kpi-val">{{ reorderData.suggestions | filterUrgency:'HIGH' }}</div>
+                    <div class="mini-kpi-lbl">🟠 High</div>
+                </div>
+                <div class="mini-kpi amber">
+                    <div class="mini-kpi-val">{{ reorderData.suggestions | filterUrgency:'MEDIUM' }}</div>
+                    <div class="mini-kpi-lbl">🟡 Medium</div>
+                </div>
+                <div class="mini-kpi cyan">
+                    <div class="mini-kpi-val">
+                        ₹{{ getTotalEstimatedCost() | number:'1.0-0' }}
+                    </div>
+                    <div class="mini-kpi-lbl">💰 Total Est. Cost</div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-card">
+                <div style="overflow-x:auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>SKU</th>
+                                <th>Category</th>
+                                <th style="text-align:center">Stock</th>
+                                <th style="text-align:center">Reorder Lvl</th>
+                                <th style="text-align:center">Avg Daily</th>
+                                <th style="text-align:center">Days Left</th>
+                                <th style="text-align:center">Safety Stock</th>
+                                <th style="text-align:center">Rec. Qty</th>
+                                <th style="text-align:right">Est. Cost</th>
+                                <th style="text-align:center">Urgency</th>
+                                <th style="text-align:center">Vendor</th>
+                                <th style="text-align:center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let s of reorderData.suggestions">
+                                <td class="name-cell">{{ s.product_name }}</td>
+                                <td><code class="sku-tag">{{ s.sku }}</code></td>
+                                <td class="muted">{{ s.category }}</td>
+                                <td style="text-align:center;font-weight:700"
+                                    [style.color]="s.current_stock===0?'#ff4d6d':'#ffaa00'">
+                                    {{ s.current_stock }}
+                                </td>
+                                <td style="text-align:center" class="muted">{{ s.reorder_level }}</td>
+                                <td style="text-align:center;font-family:monospace">{{ s.avg_daily_usage }}</td>
+                                <td style="text-align:center">
+                                    <span *ngIf="s.days_until_stockout !== null"
+                                        [style.color]="s.days_until_stockout<=3?'#ff4d6d':s.days_until_stockout<=7?'#ffaa00':'#00ffcc'">
+                                        {{ s.days_until_stockout }}d
+                                    </span>
+                                    <span *ngIf="s.days_until_stockout === null" class="muted">—</span>
+                                </td>
+                                <td style="text-align:center;font-family:monospace">{{ s.safety_stock }}</td>
+                                <td style="text-align:center;font-weight:700;color:#00b4ff">
+                                    {{ s.recommended_qty }}
+                                </td>
+                                <td style="text-align:right;font-weight:600">₹{{ s.estimated_cost | number:'1.0-0' }}</td>
+                                <td style="text-align:center">
+                                    <span class="badge" [ngClass]="urgencyClass(s.urgency)">{{ s.urgency }}</span>
+                                </td>
+                                <td style="text-align:center;font-size:12px">
+                                    {{ s.vendor?.name || '—' }}
+                                </td>
+                                <td style="text-align:center">
+                                    <button class="btn btn-primary btn-sm"
+                                        [disabled]="s.has_open_po"
+                                        (click)="createPO(s)"
+                                        [title]="s.has_open_po ? 'PO already exists' : 'Create Purchase Order'">
+                                        {{ s.has_open_po ? '✅ PO Exists' : '+ Create PO' }}
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr *ngIf="reorderData.suggestions.length===0">
+                                <td colspan="13" class="empty-row">✅ All products are above reorder levels!</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- How it works -->
+            <div class="info-box">
+                <strong>📐 How Recommended Qty is Calculated:</strong>
+                <span>Recommended Qty = Max(Reorder Level × 2, Lead Time Demand + Safety Stock)</span>
+                <span>Where Lead Time Demand = Avg Daily Usage × {{ reorderData.lead_time }} days,
+                    Safety Stock = 50% buffer</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB 2 — INVENTORY VALUATION                               -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab==='valuation'" class="animate-fade">
+
+        <div class="report-toolbar">
+            <div class="spacer"></div>
+            <button class="btn btn-ghost btn-sm" (click)="loadValuation()">⟳ Refresh</button>
+            <button class="btn btn-success btn-sm" (click)="exportValuationCSV()">📥 Export CSV</button>
+        </div>
+
+        <div class="loading-row" *ngIf="valuationLoading">⟳ Calculating inventory value...</div>
+
+        <div *ngIf="!valuationLoading && valuationData">
+
+            <!-- KPI Cards -->
+            <div class="val-kpi-grid">
+                <div class="val-kpi blue">
+                    <div class="val-kpi-icon">💰</div>
+                    <div class="val-kpi-label">Total Inventory Value</div>
+                    <div class="val-kpi-value">₹{{ valuationData.total_inventory_value | number:'1.0-0' }}</div>
+                    <div class="val-kpi-sub">{{ valuationData.total_units | number }} units across {{ valuationData.total_products }} products</div>
+                </div>
+                <div class="val-kpi red">
+                    <div class="val-kpi-icon">⚠️</div>
+                    <div class="val-kpi-label">Value At Risk</div>
+                    <div class="val-kpi-value">₹{{ valuationData.at_risk_value | number:'1.0-0' }}</div>
+                    <div class="val-kpi-sub">{{ valuationData.at_risk_products }} low/out-of-stock products</div>
+                </div>
+                <div class="val-kpi amber">
+                    <div class="val-kpi-icon">💀</div>
+                    <div class="val-kpi-label">Dead Stock</div>
+                    <div class="val-kpi-value">{{ valuationData.dead_stock_count }}</div>
+                    <div class="val-kpi-sub">Products with zero stock</div>
+                </div>
+                <div class="val-kpi green">
+                    <div class="val-kpi-icon">📊</div>
+                    <div class="val-kpi-label">Avg Value per Product</div>
+                    <div class="val-kpi-value">
+                        ₹{{ valuationData.total_products > 0 ? (valuationData.total_inventory_value / valuationData.total_products | number:'1.0-0') : 0 }}
+                    </div>
+                    <div class="val-kpi-sub">Average across all products</div>
+                </div>
+            </div>
+
+            <!-- Category Valuation -->
+            <div class="two-col">
+                <div class="table-card">
+                    <div class="card-title">🗂️ Category-wise Valuation</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th style="text-align:center">Products</th>
+                                <th style="text-align:center">Units</th>
+                                <th style="text-align:right">Value (₹)</th>
+                                <th style="text-align:right">Share</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let c of valuationData.category_valuation">
+                                <td class="name-cell">{{ c.category }}</td>
+                                <td style="text-align:center" class="muted">{{ c.product_count }}</td>
+                                <td style="text-align:center" class="muted">{{ c.total_units | number }}</td>
+                                <td style="text-align:right;font-weight:700;color:#00b4ff">
+                                    ₹{{ c.category_value | number:'1.0-0' }}
+                                </td>
+                                <td style="text-align:right">
+                                    <div class="share-bar-wrap">
+                                        <div class="share-bar" [style.width]="valuePct(c.category_value)"></div>
+                                        <span class="share-pct">{{ valuePct(c.category_value) }}</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Top Valuable Products -->
+                <div class="table-card">
+                    <div class="card-title">🏆 Top 5 Most Valuable Products</div>
+                    <div class="top-val-list">
+                        <div class="top-val-item" *ngFor="let p of valuationData.top_valuable_products; let i = index">
+                            <div class="top-val-rank">#{{ i+1 }}</div>
+                            <div class="top-val-info">
+                                <div class="top-val-name">{{ p.name }}</div>
+                                <code class="sku-tag">{{ p.sku }}</code>
+                            </div>
+                            <div class="top-val-right">
+                                <div class="top-val-price">₹{{ p.total_value | number:'1.0-0' }}</div>
+                                <div class="top-val-sub">{{ p.current_stock }} units × ₹{{ p.unit_price }}</div>
+                            </div>
+                        </div>
+                        <div *ngIf="!valuationData.top_valuable_products?.length" class="empty-row">
+                            No products found
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB 3 — VENDOR PERFORMANCE                                -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab==='vendor'" class="animate-fade">
+
+        <div class="report-toolbar">
+            <div class="spacer"></div>
+            <button class="btn btn-ghost btn-sm" (click)="loadVendorPerformance()">⟳ Refresh</button>
+            <button class="btn btn-success btn-sm" (click)="exportVendorCSV()">📥 Export CSV</button>
+        </div>
+
+        <div class="loading-row" *ngIf="vendorLoading">⟳ Analysing vendor performance...</div>
+
+        <div *ngIf="!vendorLoading && vendorData">
+
+            <div class="empty-row" *ngIf="vendorData.total_vendors===0">
+                No vendors found. Add vendor users first from User Management.
+            </div>
+
+            <!-- Vendor Cards -->
+            <div class="vendor-grid" *ngIf="vendorData.total_vendors > 0">
+                <div class="vendor-card" *ngFor="let v of vendorData.vendors">
+
+                    <!-- Header -->
+                    <div class="vc-header">
+                        <div class="vc-avatar">{{ v.vendor_name.charAt(0).toUpperCase() }}</div>
+                        <div class="vc-info">
+                            <div class="vc-name">{{ v.vendor_name }}</div>
+                            <div class="vc-email">{{ v.vendor_email }}</div>
+                        </div>
+                        <div class="vc-score" [ngClass]="scoreClass(v.performance_score)">
+                            {{ v.performance_score }}
+                        </div>
+                    </div>
+
+                    <!-- Rating -->
+                    <div class="vc-rating">{{ v.rating }}</div>
+
+                    <!-- Score Bar -->
+                    <div class="vc-score-bar-wrap">
+                        <div class="vc-score-bar" [style.width]="scoreBarWidth(v.performance_score)"
+                            [ngClass]="scoreClass(v.performance_score)"></div>
+                    </div>
+
+                    <!-- Stats Grid -->
+                    <div class="vc-stats">
+                        <div class="vc-stat">
+                            <div class="vc-stat-val">{{ v.total_orders }}</div>
+                            <div class="vc-stat-lbl">Total Orders</div>
+                        </div>
+                        <div class="vc-stat">
+                            <div class="vc-stat-val" style="color:#00ffcc">{{ v.delivered_orders }}</div>
+                            <div class="vc-stat-lbl">Delivered</div>
+                        </div>
+                        <div class="vc-stat">
+                            <div class="vc-stat-val" style="color:#ff4d6d">{{ v.cancelled_orders }}</div>
+                            <div class="vc-stat-lbl">Cancelled</div>
+                        </div>
+                        <div class="vc-stat">
+                            <div class="vc-stat-val" style="color:#ffaa00">{{ v.pending_orders }}</div>
+                            <div class="vc-stat-lbl">Pending</div>
+                        </div>
+                    </div>
+
+                    <div class="vc-divider"></div>
+
+                    <!-- Metrics -->
+                    <div class="vc-metrics">
+                        <div class="vc-metric">
+                            <span class="vc-metric-lbl">Fulfillment Rate</span>
+                            <span class="vc-metric-val"
+                                [style.color]="v.fulfillment_rate>=80?'#00ffcc':v.fulfillment_rate>=50?'#ffaa00':'#ff4d6d'">
+                                {{ v.fulfillment_rate }}%
+                            </span>
+                        </div>
+                        <div class="vc-metric">
+                            <span class="vc-metric-lbl">Rejection Rate</span>
+                            <span class="vc-metric-val"
+                                [style.color]="v.rejection_rate<=10?'#00ffcc':v.rejection_rate<=25?'#ffaa00':'#ff4d6d'">
+                                {{ v.rejection_rate }}%
+                            </span>
+                        </div>
+                        <div class="vc-metric">
+                            <span class="vc-metric-lbl">Avg Response</span>
+                            <span class="vc-metric-val">
+                                {{ v.avg_response_hours !== null ? (v.avg_response_hours + 'h') : 'N/A' }}
+                            </span>
+                        </div>
+                        <div class="vc-metric">
+                            <span class="vc-metric-lbl">Assigned Products</span>
+                            <span class="vc-metric-val" style="color:#00b4ff">{{ v.assigned_products }}</span>
+                        </div>
+                        <div class="vc-metric">
+                            <span class="vc-metric-lbl">Qty Supplied</span>
+                            <span class="vc-metric-val">{{ v.total_qty_supplied | number }}</span>
+                        </div>
+                        <div class="vc-metric">
+                            <span class="vc-metric-lbl">Value Supplied</span>
+                            <span class="vc-metric-val" style="color:#00b4ff">₹{{ v.total_value_supplied | number:'1.0-0' }}</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Info -->
+            <div class="info-box" *ngIf="vendorData.total_vendors > 0">
+                <strong>📐 Performance Score Formula:</strong>
+                <span>Fulfillment Rate (60%) + Low Rejection Rate (20%) + Quick Response Time (20%)</span>
+            </div>
+        </div>
+    </div>
+
+</div>
