@@ -10,10 +10,9 @@ const router = express.Router();
 router.post('/register', async (req, res) => {
     try {
         const { name, username, email, password, role } = req.body;
-
-        if (!name?.trim())     return res.status(400).json({ error: 'Name is required' });
-        if (!email?.trim())    return res.status(400).json({ error: 'Email is required' });
-        if (!password)         return res.status(400).json({ error: 'Password is required' });
+        if (!name?.trim())       return res.status(400).json({ error: 'Name is required' });
+        if (!email?.trim())      return res.status(400).json({ error: 'Email is required' });
+        if (!password)           return res.status(400).json({ error: 'Password is required' });
         if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -89,10 +88,61 @@ router.get('/me', authenticate, async (req, res) => {
 // GET /api/auth/users
 router.get('/users', authenticate, async (req, res) => {
     try {
-        const users = await User.find().select('_id name username email role').sort({ name: 1 });
+        const users = await User.find().select('_id name username email role createdAt').sort({ name: 1 });
         return res.json(users);
     } catch (err) {
         return res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/auth/users/:id — Admin only
+router.delete('/users/:id', authenticate, async (req, res) => {
+    try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Access denied. Admin only.' });
+        }
+
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Prevent admin from deleting themselves
+        if (String(user._id) === String(req.user._id || req.user.id)) {
+            return res.status(400).json({ error: 'You cannot delete your own account' });
+        }
+
+        await user.deleteOne();
+        return res.json({ success: true, message: `User "${user.name}" deleted successfully` });
+    } catch (err) {
+        console.error('[DELETE USER ERROR]', err);
+        return res.status(500).json({ error: 'Delete failed: ' + err.message });
+    }
+});
+
+// POST /api/auth/admin-reset-password — Admin only
+router.post('/admin-reset-password', authenticate, async (req, res) => {
+    try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Access denied. Admin only.' });
+        }
+
+        const { userId, newPassword } = req.body;
+        if (!userId || !newPassword) {
+            return res.status(400).json({ error: 'userId and newPassword are required' });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        user.password = await bcrypt.hash(newPassword, 10);
+        await user.save();
+
+        return res.json({ success: true, message: `Password reset for "${user.name}"` });
+    } catch (err) {
+        console.error('[ADMIN RESET PASSWORD ERROR]', err);
+        return res.status(500).json({ error: 'Password reset failed: ' + err.message });
     }
 });
 
