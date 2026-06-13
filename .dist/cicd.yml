@@ -1,0 +1,196 @@
+name: SmartShelfX CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+
+  # ══════════════════════════════════════════════════════════════════
+  # JOB 1 — LINT & TEST BACKEND
+  # ══════════════════════════════════════════════════════════════════
+  test-backend:
+    name: 🧪 Test Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Check for syntax errors
+        run: |
+          cd backend
+          node --check server.js
+          node --check routes/auth.routes.js
+          node --check routes/product.routes.js
+          node --check routes/analytics.routes.js
+
+      - name: Verify all route files exist
+        run: |
+          cd backend
+          ls routes/
+          echo "✅ All route files present"
+
+  # ══════════════════════════════════════════════════════════════════
+  # JOB 2 — BUILD FRONTEND
+  # ══════════════════════════════════════════════════════════════════
+  build-frontend:
+    name: 🔨 Build Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build Angular production bundle
+        run: |
+          cd frontend
+          npx ng build --configuration production
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist/
+          retention-days: 1
+
+  # ══════════════════════════════════════════════════════════════════
+  # JOB 3 — BUILD & PUSH DOCKER IMAGES
+  # Runs only on push to main (not on PRs)
+  # ══════════════════════════════════════════════════════════════════
+  build-and-push:
+    name: 🐳 Build & Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [test-backend, build-frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ── Build & Push Backend ──────────────────────────────────────
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          dockerfile: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/smartshelfx-backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/smartshelfx-backend:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      # ── Build & Push Frontend ─────────────────────────────────────
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          dockerfile: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/smartshelfx-frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/smartshelfx-frontend:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      # ── Build & Push ML Service ───────────────────────────────────
+      - name: Build and push ML Service image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ml-service
+          dockerfile: ./ml-service/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/smartshelfx-ml:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/smartshelfx-ml:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      - name: Print image tags
+        run: |
+          echo "✅ Images pushed successfully:"
+          echo "   Backend:  ${{ secrets.DOCKERHUB_USERNAME }}/smartshelfx-backend:${{ env.IMAGE_TAG }}"
+          echo "   Frontend: ${{ secrets.DOCKERHUB_USERNAME }}/smartshelfx-frontend:${{ env.IMAGE_TAG }}"
+          echo "   ML:       ${{ secrets.DOCKERHUB_USERNAME }}/smartshelfx-ml:${{ env.IMAGE_TAG }}"
+
+  # ══════════════════════════════════════════════════════════════════
+  # JOB 4 — DEPLOY TO RAILWAY
+  # ══════════════════════════════════════════════════════════════════
+  deploy:
+    name: 🚀 Deploy to Railway
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy Backend to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          cd backend
+          railway up --service smartshelfx-backend --detach
+
+      - name: Deploy ML Service to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          cd ml-service
+          railway up --service smartshelfx-ml --detach
+
+      - name: Deploy Frontend to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          cd frontend
+          railway up --service smartshelfx-frontend --detach
+
+      - name: Deployment complete
+        run: |
+          echo "✅ SmartShelfX deployed to Railway!"
+          echo "🌐 Check: https://railway.app/dashboard"

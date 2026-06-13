@@ -1,0 +1,135 @@
+# ═══════════════════════════════════════════════════════════════
+#  SmartShelfX — Docker Compose
+#
+#  Docker Compose runs ALL services together with one command:
+#  $ docker-compose up --build
+#
+#  All services on same network so they talk using service names
+#  e.g. backend connects to MongoDB using: mongodb://mongodb:27017
+#       NOT: mongodb://localhost:27017
+# ═══════════════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+
+  # ── SERVICE 1: MongoDB ─────────────────────────────────────────
+  # Using official MongoDB image from Docker Hub
+  # We don't need to install MongoDB on our laptop anymore!
+  mongodb:
+    image: mongo:7.0
+    container_name: smartshelfx-mongo
+    restart: unless-stopped
+    # restart = if container crashes, restart it automatically
+    ports:
+      - "27017:27017"
+      # HOST_PORT:CONTAINER_PORT
+      # Left = port on your laptop
+      # Right = port inside container
+    volumes:
+      - mongo_data:/data/db
+      # volume = persistent storage
+      # Without this, all data is lost when container stops!
+      # mongo_data is defined at bottom of this file
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # Docker checks if MongoDB is ready every 30 seconds
+    networks:
+      - smartshelfx-network
+
+  # ── SERVICE 2: Backend ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      # context = folder to build Docker image from
+      dockerfile: Dockerfile
+    container_name: smartshelfx-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Environment variables passed into container
+      # Uses ${VAR} syntax to read from your .env file
+      PORT: 3000
+      NODE_ENV: production
+      MONGO_URI: mongodb://mongodb:27017/smartshelfx
+      # NOTE: "mongodb" here = the service name above, NOT localhost!
+      # Docker's internal network resolves service names to IPs
+      JWT_SECRET:       ${JWT_SECRET}
+      JWT_EXPIRES_IN:   24h
+      ML_SERVICE_URL:   http://ml-service:8000
+      # "ml-service" = the service name below
+      SMTP_HOST:        ${SMTP_HOST}
+      SMTP_PORT:        ${SMTP_PORT}
+      SMTP_SECURE:      ${SMTP_SECURE}
+      SMTP_USER:        ${SMTP_USER}
+      SMTP_PASS:        ${SMTP_PASS}
+      SMTP_FROM:        ${SMTP_FROM}
+      APP_URL:          ${APP_URL}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      # depends_on = don't start backend until MongoDB is healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - smartshelfx-network
+
+  # ── SERVICE 3: ML Service ──────────────────────────────────────
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: smartshelfx-ml
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/smartshelfx
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+      # start_period = give ML service 60 seconds to load model
+    networks:
+      - smartshelfx-network
+
+  # ── SERVICE 4: Frontend ────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smartshelfx-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # Your app is on http://localhost (port 80 = default HTTP)
+    depends_on:
+      - backend
+    networks:
+      - smartshelfx-network
+
+# ── VOLUMES ──────────────────────────────────────────────────────
+# Named volumes persist data even when containers stop/restart
+volumes:
+  mongo_data:
+    driver: local
+    # local = stored on your machine at /var/lib/docker/volumes/
+
+# ── NETWORKS ──────────────────────────────────────────────────────
+# All services on same network can talk to each other using names
+networks:
+  smartshelfx-network:
+    driver: bridge
+    # bridge = default Docker network (isolated from host network)

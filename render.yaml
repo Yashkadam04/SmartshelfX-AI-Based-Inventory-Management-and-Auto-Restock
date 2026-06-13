@@ -1,0 +1,63 @@
+# ═══════════════════════════════════════════════════════════════
+#  SmartShelfX — Render Deployment Config
+#
+#  This tells Render to pull Docker images from Docker Hub
+#  instead of building from source code directly
+#
+#  Place this file in the ROOT of your project
+# ═══════════════════════════════════════════════════════════════
+
+services:
+
+  # ── Backend Service ───────────────────────────────────────────
+  - type: web
+    name: smartshelfx-backend
+    # Pull pre-built Docker image from Docker Hub
+    image:
+      url: docker.io/YOUR_DOCKERHUB_USERNAME/smartshelfx-backend:latest
+    region: singapore
+    plan: free
+    # Port our backend listens on
+    httpPort: 3000
+    # Health check endpoint — Render checks this to confirm app is running
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false        # sync:false = you set this manually in dashboard
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: ML_SERVICE_URL
+        sync: false        # set this after ML service is deployed
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        value: "SmartShelfX <noreply@smartshelfx.com>"
+      - key: APP_URL
+        sync: false        # set this after Vercel deploy
+
+  # ── ML Service ────────────────────────────────────────────────
+  - type: web
+    name: smartshelfx-ml
+    image:
+      url: docker.io/YOUR_DOCKERHUB_USERNAME/smartshelfx-ml:latest
+    region: singapore
+    plan: free
+    httpPort: 8000
+    healthCheckPath: /health
+    envVars:
+      - key: MONGO_URI
+        sync: false

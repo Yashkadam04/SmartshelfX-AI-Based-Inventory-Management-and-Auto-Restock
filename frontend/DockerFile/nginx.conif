@@ -1,0 +1,29 @@
+# Nginx configuration for Angular SPA (Single Page Application)
+
+server {
+    listen 80;
+    server_name _;
+
+    # Where our Angular files are
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Gzip compression — makes files smaller = faster loading
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript;
+
+    # This is the most important part for Angular routing
+    # Angular handles routing on the frontend (not the server)
+    # So ALL URL requests should return index.html
+    # Angular will then show the correct page/component
+    location / {
+        try_files $uri $uri/ /index.html;
+        # try_files = look for the file, if not found serve index.html
+    }
+
+    # Cache static files for 1 year (js, css, images don't change)
+    location ~* \.(js|css|png|jpg|ico|svg|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
