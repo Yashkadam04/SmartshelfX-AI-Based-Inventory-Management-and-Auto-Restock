@@ -434,4 +434,4 @@ SmartShelfX sends automated emails in two scenarios:
 
 👨‍💻 Author:-Shreyash Jokare
 
-GitHub: https://github.com/Shreyash0895
+GitHub: https://github.com/Shreyash0895 or https://github.com/Yashkadam04
