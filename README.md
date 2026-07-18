@@ -432,6 +432,6 @@ SmartShelfX sends automated emails in two scenarios:
 5. Open a Pull Request
 
 
-👨‍💻 Author:-Shreyash Jokare
+👨‍💻 Author:-Shreyash Jokare and Yash Kadam
 
 GitHub: https://github.com/Shreyash0895 or https://github.com/Yashkadam04
