@@ -19,14 +19,14 @@ import { environment } from '../../environments/environment';
 export class OrdersComponent implements OnInit {
 
     orders: PurchaseOrder[] = [];
-    pendingPOs: PurchaseOrder[] = [];   // vendor: pending approvals only
+    pendingPOs: PurchaseOrder[] = [];
     suggestions: ForecastResult[] = [];
     products: Product[] = [];
     vendors: User[] = [];
     loading = false;
     loadingPending = false;
     showCreate = false;
-    actioningId: number | null = null;   // tracks which PO is being acted on
+    actioningId: string | null = null;
 
     filterStatus = '';
     page = 1;
@@ -62,10 +62,41 @@ export class OrdersComponent implements OnInit {
     buildForm() {
         this.form = this.fb.group({
             product_id: ['', Validators.required],
-            vendor_id: ['', Validators.required],
-            quantity: ['', [Validators.required, Validators.min(1)]],
-            notes: ['']
+            vendor_id:  ['', Validators.required],
+            quantity:   ['', [Validators.required, Validators.min(1)]],
+            notes:      ['']
         });
+    }
+
+    // Helper: get MongoDB _id or fallback id from any document
+    getId(obj: any): string {
+        return obj?._id || obj?.id || '';
+    }
+
+    // Helper: get product name from populated or non-populated field
+    getProductName(o: PurchaseOrder): string {
+        const p = o.product_id;
+        if (p && typeof p === 'object' && p.name) return p.name;
+        return (o as any).Product?.name || '—';
+    }
+
+    // Helper: get product SKU
+    getProductSku(o: PurchaseOrder): string {
+        const p = o.product_id;
+        if (p && typeof p === 'object' && p.sku) return p.sku;
+        return (o as any).Product?.sku || '';
+    }
+
+    // Helper: get vendor name from populated or non-populated field
+    getVendorNameFromOrder(o: PurchaseOrder): string {
+        const v = o.vendor_id;
+        if (v && typeof v === 'object' && (v as any).name) return (v as any).name;
+        return (o as any).vendor?.name || `Vendor #${o.vendor_id}`;
+    }
+
+    // Helper: get order date (MongoDB uses createdAt, old schema used created_at)
+    getOrderDate(o: PurchaseOrder): string {
+        return (o as any).createdAt || o.created_at || '';
     }
 
     loadOrders() {
@@ -78,7 +109,6 @@ export class OrdersComponent implements OnInit {
         });
     }
 
-    /** Load PENDING POs for the logged-in vendor — shown as approval cards */
     loadPendingPOs() {
         this.loadingPending = true;
         this.api.getOrders({ status: 'PENDING', limit: 50 }).subscribe({
@@ -91,7 +121,7 @@ export class OrdersComponent implements OnInit {
         if (this.isVendor) return;
         this.api.getOrderSuggestions().subscribe({
             next: res => this.suggestions = res,
-            error: (err) => {
+            error: err => {
                 this.suggestions = [];
                 this.notify.error('Could not load AI suggestions: ' + (err?.error?.error || err?.message || 'Server error'));
             }
@@ -115,7 +145,6 @@ export class OrdersComponent implements OnInit {
         });
     }
 
-
     createOrder() {
         if (this.form.invalid) { this.form.markAllAsTouched(); return; }
         this.api.createOrder(this.form.value).subscribe({
@@ -123,10 +152,10 @@ export class OrdersComponent implements OnInit {
                 this.notify.success('Purchase order created & vendor notified!');
                 this.showCreate = false;
                 this.form.reset();
-                this.page = 1;              // always go back to page 1 to see new PO
-                this.filterStatus = '';     // clear any status filter so new PO is visible
+                this.page = 1;
+                this.filterStatus = '';
                 this.loadOrders();
-                this.loadSuggestions();     // refresh suggestions too
+                this.loadSuggestions();
             },
             error: err => this.notify.error(err.error?.error || 'Failed to create order')
         });
@@ -134,55 +163,53 @@ export class OrdersComponent implements OnInit {
 
     generateFromSuggestion(s: ForecastResult) {
         if (!s.Product) return;
-        this.form.patchValue({ product_id: s.product_id, vendor_id: s.Product.vendor_id, quantity: Math.ceil(s.predicted_qty * 1.2) });
+        const productId = this.getId(s.Product);
+        const vendorId  = this.getId((s.Product as any).vendor_id) || this.getId(s.Product.vendor);
+        this.form.patchValue({
+            product_id: productId,
+            vendor_id:  vendorId,
+            quantity:   Math.ceil(s.predicted_qty * 1.2)
+        });
         this.showCreate = true;
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    /** Vendor approves a PO */
-    approveOrder(id: number) {
+    approveOrder(id: string) {
         this.actioningId = id;
-        this.api.updateOrderStatus(id, 'APPROVED').subscribe({
+        this.api.updateOrderStatus(id as any, 'APPROVED').subscribe({
             next: () => {
                 this.actioningId = null;
                 this.notify.success('✅ Order approved! Manager has been notified.');
-                this.pendingPOs = this.pendingPOs.filter(p => p.id !== id);
+                this.pendingPOs = this.pendingPOs.filter(p => this.getId(p) !== id);
                 this.loadOrders();
             },
-            error: err => {
-                this.actioningId = null;
-                this.notify.error(err.error?.error || 'Approval failed');
-            }
+            error: err => { this.actioningId = null; this.notify.error(err.error?.error || 'Approval failed'); }
         });
     }
 
-    /** Vendor rejects a PO */
-    rejectOrder(id: number) {
+    rejectOrder(id: string) {
         this.actioningId = id;
-        this.api.updateOrderStatus(id, 'CANCELLED').subscribe({
+        this.api.updateOrderStatus(id as any, 'CANCELLED').subscribe({
             next: () => {
                 this.actioningId = null;
                 this.notify.success('❌ Order rejected. Manager has been notified.');
-                this.pendingPOs = this.pendingPOs.filter(p => p.id !== id);
+                this.pendingPOs = this.pendingPOs.filter(p => this.getId(p) !== id);
                 this.loadOrders();
             },
-            error: err => {
-                this.actioningId = null;
-                this.notify.error(err.error?.error || 'Rejection failed');
-            }
+            error: err => { this.actioningId = null; this.notify.error(err.error?.error || 'Rejection failed'); }
         });
     }
 
-    updateStatus(id: number, status: string) {
-        this.api.updateOrderStatus(id, status).subscribe({
+    updateStatus(id: string, status: string) {
+        this.api.updateOrderStatus(id as any, status).subscribe({
             next: () => { this.notify.success(`Order marked as ${status}`); this.loadOrders(); },
             error: err => this.notify.error(err.error?.error || 'Update failed')
         });
     }
 
-    getVendorName(id: number | null): string {
+    getVendorName(id: string | null): string {
         if (!id) return '—';
-        return this.vendors.find(v => v.id === id)?.name || `Vendor #${id}`;
+        return this.vendors.find(v => this.getId(v) === id)?.name || `Vendor #${id}`;
     }
 
     statusClass(s: string) {

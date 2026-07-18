@@ -1,11 +1,13 @@
 /* ================================================================
    SmartShelfX — All TypeScript Interfaces & Enums
+   Updated for MongoDB (ObjectId strings)
    ================================================================ */
 
 export interface User {
-    id: number;
+    _id?: string;
+    id?: any;
     name: string;
-    username: string;
+    username?: string;
     email: string;
     role: 'ADMIN' | 'MANAGER' | 'VENDOR';
     createdAt?: string;
@@ -15,7 +17,7 @@ export interface AuthResponse {
     token: string;
     role: string;
     name: string;
-    userId: number;
+    userId: string;
 }
 
 export interface LoginPayload {
@@ -32,11 +34,12 @@ export interface RegisterPayload {
 }
 
 export interface Product {
-    id: number;
+    _id?: string;
+    id?: any;
     name: string;
     sku: string;
     category: string;
-    vendor_id: number | null;
+    vendor_id?: any;
     vendor?: User;
     reorder_level: number;
     current_stock: number;
@@ -55,19 +58,20 @@ export interface ProductListResponse {
 export type TransactionType = 'IN' | 'OUT';
 
 export interface StockTransaction {
-    id: number;
-    product_id: number;
+    _id?: string;
+    id?: any;
+    product_id?: any;
     Product?: Product;
     quantity: number;
     type: TransactionType;
     timestamp: string;
-    handled_by: number;
+    handled_by?: any;
     handler?: User;
     notes?: string;
 }
 
 export interface TransactionPayload {
-    product_id: number;
+    product_id: string;
     quantity: number;
     type: TransactionType;
     notes?: string;
@@ -76,20 +80,22 @@ export interface TransactionPayload {
 export type OrderStatus = 'PENDING' | 'APPROVED' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED';
 
 export interface PurchaseOrder {
-    id: number;
-    product_id: number;
+    _id?: string;
+    id?: any;
+    product_id?: any;
     Product?: Product;
-    vendor_id: number | null;
+    vendor_id?: any;
     vendor?: User;
     quantity: number;
     status: OrderStatus;
-    created_at: string;
+    createdAt?: string;
+    created_at?: string;
     notes?: string;
 }
 
 export interface OrderPayload {
-    product_id: number;
-    vendor_id: number;
+    product_id: string;
+    vendor_id: string;
     quantity: number;
     notes?: string;
 }
@@ -98,13 +104,15 @@ export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'EXPIRY' | 'RESTOCK_SUGGE
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface Alert {
-    id: number;
-    product_id: number | null;
+    _id?: string;
+    id?: any;
+    product_id?: any;
     Product?: Product;
     type: AlertType;
     message: string;
     is_read: boolean;
-    created_at: string;
+    createdAt?: string;
+    created_at?: string;
 }
 
 export interface AlertListResponse {
@@ -114,14 +122,16 @@ export interface AlertListResponse {
 }
 
 export interface ForecastResult {
-    id: number;
-    product_id: number;
+    _id?: string;
+    id?: any;
+    product_id?: any;
     Product?: Product;
     forecast_date: string;
     predicted_qty: number;
     confidence: number;
     risk_level: RiskLevel;
-    created_at: string;
+    createdAt?: string;
+    created_at?: string;
 }
 
 export interface AnalyticsSummary {
@@ -161,7 +171,7 @@ export interface PaginationParams {
 
 export interface ProductFilterParams extends PaginationParams {
     category?: string;
-    vendor_id?: number;
+    vendor_id?: string;
     status?: string;
     search?: string;
 }

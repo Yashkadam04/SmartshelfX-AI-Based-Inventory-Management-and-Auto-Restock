@@ -57,7 +57,7 @@
             <div class="chart-wrap" *ngIf="!loadingChart">
                 <canvas #stockTrendCanvas></canvas>
             </div>
-            <div class="chart-empty" *ngIf="!loadingChart && !trendLabels?.length">No transaction data yet</div>
+            <div class="chart-empty" *ngIf="!loadingChart && trendLabels.length === 0">No transaction data yet</div>
         </div>
         <div class="chart-card chart-narrow">
             <div class="card-title">🛒 PO Status Breakdown</div>
@@ -136,4 +136,87 @@
         </div>
     </div>
 
-</div> 
+    <!-- ── Row 4: Inventory Valuation ────────────────────────────── -->
+    <div class="section-title">💰 Inventory Valuation</div>
+
+    <!-- Valuation KPI Cards -->
+    <div class="val-kpi-grid">
+        <div class="val-kpi-card green">
+            <div class="val-kpi-icon">💰</div>
+            <div class="val-kpi-label">Total Inventory Value</div>
+            <div class="val-kpi-value">{{ formatCurrency(valuation.total_inventory_value) }}</div>
+            <div class="val-kpi-sub">{{ valuation.total_units | number }} units across {{ valuation.total_products }} products</div>
+        </div>
+        <div class="val-kpi-card red">
+            <div class="val-kpi-icon">⚠️</div>
+            <div class="val-kpi-label">Value at Risk</div>
+            <div class="val-kpi-value">{{ formatCurrency(valuation.at_risk_value) }}</div>
+            <div class="val-kpi-sub">{{ valuation.at_risk_products }} products low/critical/out</div>
+        </div>
+        <div class="val-kpi-card amber">
+            <div class="val-kpi-icon">🔒</div>
+            <div class="val-kpi-label">Safe Stock Value</div>
+            <div class="val-kpi-value">{{ formatCurrency(valuation.total_inventory_value - valuation.at_risk_value) }}</div>
+            <div class="val-kpi-sub">Value of healthy stock</div>
+        </div>
+        <div class="val-kpi-card blue">
+            <div class="val-kpi-icon">📦</div>
+            <div class="val-kpi-label">Dead Stock Items</div>
+            <div class="val-kpi-value">{{ valuation.dead_stock_count }}</div>
+            <div class="val-kpi-sub">Out of stock with unit price set</div>
+        </div>
+    </div>
+
+    <!-- Valuation Charts Row -->
+    <div class="val-charts-row">
+
+        <!-- Category Valuation Bars -->
+        <div class="val-card">
+            <div class="card-title">🗂️ Value by Category</div>
+            <div class="val-bar-list" *ngIf="valuation.category_valuation?.length > 0">
+                <div class="val-bar-item" *ngFor="let c of valuation.category_valuation">
+                    <div class="val-bar-label">
+                        <span class="val-cat-name">{{ c.category }}</span>
+                        <span class="val-cat-val">{{ formatCurrency(c.category_value) }}</span>
+                    </div>
+                    <div class="val-bar-track">
+                        <div class="val-bar-fill green-fill" [style.width]="getValuationBarWidth(c.category_value)"></div>
+                    </div>
+                    <div class="val-bar-meta">{{ c.total_units | number }} units · {{ c.product_count }} products</div>
+                </div>
+            </div>
+            <div class="chart-empty" *ngIf="!valuation.category_valuation?.length">No category data yet</div>
+        </div>
+
+        <!-- Top Valuable Products Table -->
+        <div class="val-card">
+            <div class="card-title">🏆 Top 5 Most Valuable Products</div>
+            <table class="val-table" *ngIf="valuation.top_valuable_products?.length > 0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Product</th>
+                        <th style="text-align:right">Stock</th>
+                        <th style="text-align:right">Unit Price</th>
+                        <th style="text-align:right">Total Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let p of valuation.top_valuable_products; let i = index">
+                        <td style="color:rgba(255,255,255,0.3);font-weight:700">{{ i + 1 }}</td>
+                        <td>
+                            <div style="font-weight:600;color:rgba(255,255,255,0.9)">{{ p.name }}</div>
+                            <code style="font-size:10px;color:#00b4ff">{{ p.sku }}</code>
+                        </td>
+                        <td style="text-align:right;color:rgba(255,255,255,0.6)">{{ p.current_stock | number }}</td>
+                        <td style="text-align:right;color:rgba(255,255,255,0.6)">₹{{ p.unit_price | number }}</td>
+                        <td style="text-align:right;font-weight:700;color:#00ffcc">{{ formatCurrency(p.total_value) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="chart-empty" *ngIf="!valuation.top_valuable_products?.length">No products yet</div>
+        </div>
+
+    </div>
+
+</div>

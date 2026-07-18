@@ -12,6 +12,6 @@ export const appConfig: ApplicationConfig = {
         provideRouter(routes, withComponentInputBinding()),
         provideHttpClient(withInterceptors([jwtInterceptor])),
         provideAnimationsAsync(),
-        { provide: DOCUMENT, useValue: document }
+        { provide: DOCUMENT, useFactory: () => document }
     ]
 };

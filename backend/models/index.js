@@ -22,7 +22,7 @@ const ProductSchema = new Schema({
     expiry_date:   { type: Date, default: null }
 }, { timestamps: true });
 
-ProductSchema.index({ sku: 1 });
+// Note: sku index is already created by unique:true above — no duplicate needed
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ vendor_id: 1 });
 

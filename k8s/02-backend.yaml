@@ -1,0 +1,99 @@
+# ── Backend Deployment ────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: smartshelfx
+  labels:
+    app: backend
+spec:
+  replicas: 2                   # 2 instances for high availability
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: RollingUpdate         # Zero-downtime deployments
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: YOUR_DOCKERHUB_USERNAME/smartshelfx-backend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: NODE_ENV
+              value: "production"
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: smartshelfx-secrets
+                  key: MONGO_URI
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smartshelfx-secrets
+                  key: JWT_SECRET
+            - name: ML_SERVICE_URL
+              value: "http://ml-service:8000"
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: smartshelfx-secrets
+                  key: SMTP_HOST
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: smartshelfx-secrets
+                  key: SMTP_USER
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: smartshelfx-secrets
+                  key: SMTP_PASS
+            - name: SMTP_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: smartshelfx-secrets
+                  key: SMTP_FROM
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+---
+# ── Backend Service ───────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: smartshelfx
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP

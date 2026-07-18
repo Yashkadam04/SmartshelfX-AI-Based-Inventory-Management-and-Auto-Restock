@@ -1,0 +1,43 @@
+# ═══════════════════════════════════════════════════════════════
+#  SmartShelfX — ML Service Dockerfile
+#  Python FastAPI service for AI demand forecasting
+# ═══════════════════════════════════════════════════════════════
+
+# ── STAGE 1: Install Python Dependencies ────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Install system dependencies needed to build Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+# rm -rf /var/lib/apt/lists/* = clean up cache to keep image small
+
+# Install Python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+# --user = install in /root/.local (easier to copy to next stage)
+# --no-cache-dir = don't cache pip downloads (smaller image)
+
+# ── STAGE 2: Production Container ───────────────────────────────
+FROM python:3.11-slim AS production
+
+WORKDIR /app
+
+# Copy installed Python packages from builder
+COPY --from=builder /root/.local /root/.local
+
+# Make sure installed packages are in PATH
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy ML service source code
+COPY . .
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget -qO- http://localhost:8000/health || exit 1
+
+# Start FastAPI with uvicorn server
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

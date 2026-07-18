@@ -10,9 +10,9 @@
 stock levels using AI-powered demand forecasting. The system analyzes historical 
 sales, seasonal trends, and real-time data to recommend and automate restocking 
 operations. Built using Angular 19 for the frontend, Node.js (Express) for the backend, 
-and MySQL for data storage, SmartShelfX provides a smart dashboard, real-time alerts, 
+and MongoDB for data storage, SmartShelfX provides a smart dashboard, real-time alerts, 
 and automated purchase order suggestions, ensuring minimal stockouts and 
-overstocking. 
+overstocking.  
 
 ---
 

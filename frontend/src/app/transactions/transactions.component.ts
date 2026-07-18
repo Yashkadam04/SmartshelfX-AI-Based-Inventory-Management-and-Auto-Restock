@@ -22,8 +22,10 @@ function toLocalDateTimeString(date: Date): string {
 export class TransactionsComponent implements OnInit {
 
     activeTab: 'IN' | 'OUT' | 'HISTORY' = 'IN';
-    transactions: StockTransaction[] = [];
-    products: Product[] = [];
+    //transactions: StockTransaction[] = [];
+    //products: Product[] = [];
+    products: any[] = [];
+    transactions: any[] = [];
     loading = false;
     submitting = false;
 

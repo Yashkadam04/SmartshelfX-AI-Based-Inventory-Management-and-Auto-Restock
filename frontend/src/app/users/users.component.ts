@@ -5,8 +5,14 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 
 interface UserRecord {
-    id: number; name: string; email: string; role: string;
-    created_at: string; createdAt?: string; password_hash?: string;
+    _id?: string;
+    id?: any;
+    name: string;
+    email: string;
+    role: string;
+    created_at?: string;
+    createdAt?: string;
+    password_hash?: string;
 }
 
 @Component({
@@ -23,7 +29,7 @@ export class UsersComponent implements OnInit {
     filterRole = '';
 
     // Password visibility toggle per user id
-    showPw: Record<number, boolean> = {};
+    showPw: Record<string, boolean> = {};
 
     // Reset password modal
     resetModal = false;
@@ -37,10 +43,18 @@ export class UsersComponent implements OnInit {
 
     ngOnInit() { this.loadUsers(); }
 
+    // ✅ Helper — always get the correct ID regardless of _id or id
+    getId(u: UserRecord): string {
+        return String((u as any)._id || u.id || '');
+    }
+
     loadUsers() {
         this.loading = true;
         this.http.get<any>(environment.apiUrl + '/auth/users').subscribe({
-            next: (res: any) => { this.users = Array.isArray(res) ? res : (res.data || []); this.loading = false; },
+            next: (res: any) => {
+                this.users = Array.isArray(res) ? res : (res.data || []);
+                this.loading = false;
+            },
             error: () => { this.loading = false; this.users = []; }
         });
     }
@@ -49,27 +63,35 @@ export class UsersComponent implements OnInit {
         const s = this.search.toLowerCase();
         return this.users.filter(u => {
             const matchSearch = !s || u.name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s);
-            const matchRole = !this.filterRole || u.role === this.filterRole;
+            const matchRole   = !this.filterRole || u.role === this.filterRole;
             return matchSearch && matchRole;
         });
     }
 
-    togglePw(id: number) { this.showPw[id] = !this.showPw[id]; }
+    togglePw(u: UserRecord) {
+        const id = this.getId(u);
+        this.showPw[id] = !this.showPw[id];
+    }
+
+    isPwVisible(u: UserRecord): boolean {
+        return !!this.showPw[this.getId(u)];
+    }
 
     openReset(u: UserRecord) {
-        this.resetTarget = u;
-        this.newPassword = '';
+        this.resetTarget   = u;
+        this.newPassword   = '';
         this.confirmPassword = '';
-        this.resetError = '';
-        this.resetSuccess = false;
-        this.resetModal = true;
+        this.resetError    = '';
+        this.resetSuccess  = false;
+        this.resetModal    = true;
     }
 
     closeReset() { this.resetModal = false; this.resetTarget = null; }
 
     submitReset() {
-        this.resetError = '';
+        this.resetError   = '';
         this.resetSuccess = false;
+
         const PW_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[@#_]).{8,}$/;
         if (!PW_REGEX.test(this.newPassword)) {
             this.resetError = 'Password must be 8+ chars with uppercase, lowercase, number and @#_';
@@ -79,8 +101,12 @@ export class UsersComponent implements OnInit {
             this.resetError = 'Passwords do not match';
             return;
         }
+
+        // ✅ FIXED: use _id for MongoDB
+        const userId = this.getId(this.resetTarget!);
+
         this.http.post(`${environment.apiUrl}/auth/admin-reset-password`, {
-            userId: this.resetTarget!.id,
+            userId,
             newPassword: this.newPassword
         }).subscribe({
             next: () => { this.resetSuccess = true; setTimeout(() => this.closeReset(), 1500); },
@@ -88,10 +114,16 @@ export class UsersComponent implements OnInit {
         });
     }
 
+    // ✅ FIXED: delete now uses _id for MongoDB
     deleteUser(u: UserRecord) {
         if (!confirm(`Delete user "${u.name}"? This cannot be undone.`)) return;
-        this.http.delete(`${environment.apiUrl}/auth/users/${u.id}`).subscribe({
-            next: () => { this.users = this.users.filter(x => x.id !== u.id); },
+
+        const userId = this.getId(u);
+
+        this.http.delete(`${environment.apiUrl}/auth/users/${userId}`).subscribe({
+            next: () => {
+                this.users = this.users.filter(x => this.getId(x) !== userId);
+            },
             error: (err) => { alert(err?.error?.message || 'Delete failed.'); }
         });
     }

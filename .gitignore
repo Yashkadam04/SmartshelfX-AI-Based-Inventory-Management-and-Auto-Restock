@@ -1,47 +1,43 @@
-# ========================
-# Node (Frontend + Backend)
-# ========================
+# Dependencies
 node_modules/
-frontend/node_modules/
-backend/node_modules/
-
-# Build folders
-dist/
-build/
-
-# Environment files
-.env
-frontend/.env
-backend/.env
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# ========================
-# Python (ML Service)
-# ========================
 __pycache__/
 *.pyc
-*.pyo
-
-# Virtual environments
+.venv/
 venv/
-ml-service/venv/
-smartshelfx/venv/
 
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints/
+# Environment files — NEVER commit these
+.env
+.env.*
+!.env.example
 
-# ========================
-# IDE files
-# ========================
-.vscode/
-.idea/
+# Build outputs
+dist/
+build/
+out/
+*.egg-info/
 
-# ========================
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
 # OS files
-# ========================
 .DS_Store
 Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+.dockerignore
+
+# Uploads folder (user files)
+backend/uploads/
+
+# ML model artifacts (large files)
+ml-service/model/*.pkl
+ml-service/model/*.joblib
+ml-service/*.csv

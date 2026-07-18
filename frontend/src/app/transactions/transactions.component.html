@@ -18,15 +18,19 @@
                     <label>Product *</label>
                     <select formControlName="product_id">
                         <option value="" disabled>Select product</option>
-                        <option *ngFor="let p of products" [value]="p.id">{{ p.sku }} — {{ p.name }}</option>
+                        <option *ngFor="let p of products" [value]="p._id || p.id">
+                            {{ p.sku }} — {{ p.name }}
+                        </option>
                     </select>
                     <div class="error" *ngIf="inForm.get('product_id')!.touched && inForm.get('product_id')!.invalid">
-                        Required</div>
+                        Required
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Quantity *</label>
                     <input type="number" formControlName="quantity" min="1" placeholder="Units received">
-                    <div class="error" *ngIf="inForm.get('quantity')!.touched && inForm.get('quantity')!.invalid">Min 1
+                    <div class="error" *ngIf="inForm.get('quantity')!.touched && inForm.get('quantity')!.invalid">
+                        Min 1
                     </div>
                 </div>
                 <div class="form-group">
@@ -53,17 +57,20 @@
                     <label>Product *</label>
                     <select formControlName="product_id">
                         <option value="" disabled>Select product</option>
-                        <option *ngFor="let p of products" [value]="p.id">{{ p.sku }} — {{ p.name }} ({{ p.current_stock
-                            }} in stock)</option>
+                        <option *ngFor="let p of products" [value]="p._id || p.id">
+                            {{ p.sku }} — {{ p.name }} ({{ p.current_stock }} in stock)
+                        </option>
                     </select>
                     <div class="error" *ngIf="outForm.get('product_id')!.touched && outForm.get('product_id')!.invalid">
-                        Required</div>
+                        Required
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Quantity *</label>
                     <input type="number" formControlName="quantity" min="1" placeholder="Units dispatched">
-                    <div class="error" *ngIf="outForm.get('quantity')!.touched && outForm.get('quantity')!.invalid">Min
-                        1</div>
+                    <div class="error" *ngIf="outForm.get('quantity')!.touched && outForm.get('quantity')!.invalid">
+                        Min 1
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Timestamp</label>
@@ -121,10 +128,11 @@
                     </thead>
                     <tbody>
                         <tr *ngFor="let t of transactions">
-                            <td style="color:rgba(255,255,255,0.3);font-size:12px">{{ t.id }}</td>
-                            <td><span class="sku-text">{{ t.Product?.sku || '—' }}</span></td>
-                            <td style="font-weight:600;color:rgba(255,255,255,0.9);white-space:normal">{{
-                                t.Product?.name || '—' }}</td>
+                            <td style="color:rgba(255,255,255,0.3);font-size:12px">{{ t._id || t.id }}</td>
+                            <td><span class="sku-text">{{ t.Product?.sku || t.product_id?.sku || '—' }}</span></td>
+                            <td style="font-weight:600;color:rgba(255,255,255,0.9);white-space:normal">
+                                {{ t.Product?.name || t.product_id?.name || '—' }}
+                            </td>
                             <td style="text-align:center">
                                 <span class="tx-type"
                                     [ngClass]="{'type-in': t.type==='IN', 'type-out': t.type==='OUT'}">
@@ -132,13 +140,14 @@
                                 </span>
                             </td>
                             <td class="qty-cell">{{ t.quantity | number }}</td>
-                            <td>{{ t.handler?.name || ('User #' + t.handled_by) }}</td>
+                            <td>{{ t.handler?.name || t.handled_by?.name || ('User #' + t.handled_by) }}</td>
                             <td class="ts-cell">{{ t.timestamp | date:'dd MMM yy, HH:mm' }}</td>
                             <td class="notes-cell">{{ t.notes || '—' }}</td>
                         </tr>
                         <tr *ngIf="transactions.length === 0">
-                            <td colspan="8" class="empty-row">No transactions found. Record a Stock-In or Stock-Out
-                                first.</td>
+                            <td colspan="8" class="empty-row">
+                                No transactions found. Record a Stock-In or Stock-Out first.
+                            </td>
                         </tr>
                     </tbody>
                 </table>
